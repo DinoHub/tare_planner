@@ -98,6 +98,16 @@ void LocalCoveragePlanner::UpdateViewPointCoveredFrontierPoint(std::vector<bool>
   }
 }
 
+/**
+ * Places ViewpointCandidates with their point count into cover_point_queue and frontier_queue. 
+ * Only deals with frontiers if use_frontier_ is true. Sorts the queues in descending order.
+ * 
+ * @param[out] cover_point_queue Number of points covered and the viewpoint index itself, desc order.
+ * @param[out] frontier_queue Number of frontier points covered and the viewpoint index itself, desc order.
+ * @param covered_point_list Vector of booleans containing which points are covered.
+ * @param covered_frontier_point_list Vector of booleans containing which frontier points are covered.
+ * @param selected_viewpoint_array_indices All the viewpoint_array_indices we are interested in.
+ */
 void LocalCoveragePlanner::EnqueueViewpointCandidates(std::vector<std::pair<int, int>>& cover_point_queue,
                                                       std::vector<std::pair<int, int>>& frontier_queue,
                                                       const std::vector<bool>& covered_point_list,
@@ -624,6 +634,17 @@ exploration_path_ns::ExplorationPath LocalCoveragePlanner::SolveTSP(const std::v
   return tsp_path;
 }
 
+/**
+ * Collates viewpoint indices in navigation_viewpoint_indices from the global path through GetNavigationViewPointIndices.
+ * 
+ * For each viewpoint in last_selected_viewpoint_array_indices, if viewpoint is valid and covers more points than
+ * kMinAddPointNum, push indices to reused_viewpoint_indices. If frontiers are used, check if viewpoint covers more frontier
+ * points than kMinAddFrontierPointNum.
+ * 
+ * Merge points within reused_viewpoint_indices and navigation_viewpoint_indices to pre_selected_viewpoint_array_indices.
+ * Iterate through pre_selected_viewpoint_array_indices and update the number of covered points and frontier points.
+ * 
+ */
 exploration_path_ns::ExplorationPath LocalCoveragePlanner::SolveLocalCoverageProblem(
     const exploration_path_ns::ExplorationPath& global_path, int uncovered_point_num, int uncovered_frontier_point_num)
 {

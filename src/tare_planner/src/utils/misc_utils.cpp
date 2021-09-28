@@ -737,6 +737,17 @@ bool InFOV(const Eigen::Vector3d& point_position, const Eigen::Vector3d& viewpoi
   return theta >= vertical_fov_min && theta <= vertical_fov_max;
 }
 
+/**
+ * Satisfies equation 2 in TARE paper to check if a point is visible from a viewpoint.
+ *
+ * @param point_position function checks if this point is visible from viewpoint.
+ * @param viewpoint_position position of viewpoint.
+ * @param vertical_fov_ratio vertical fov ratio used to ensure z is within range.
+ * @param range range limit for FOV.
+ * @param xy_dist_threshold equivalent to D in equation 2.
+ * @param z_diff_threshold threshold for z. 
+ * @param print boolean indicating print output to std::cout.
+ */
 bool InFOVSimple(const Eigen::Vector3d& point_position, const Eigen::Vector3d& viewpoint_position,
                  double vertical_fov_ratio, double range, double xy_dist_threshold, double z_diff_threshold, bool print)
 {

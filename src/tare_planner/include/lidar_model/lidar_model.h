@@ -79,13 +79,17 @@ public:
   }
 
   /**
-   * @brief
-   * TODO
-   * @tparam PointType
-   * @param point
-   * @param occlusion_threshold
-   * @return true
-   * @return false
+   * Checks if point is visible from LiDAR pose. 
+   * 
+   * Calculates a horizontal angle and vertical angle from the distance  
+   * between LiDAR pose and point. Uses these angles to iterate through  
+   * the points neighbors, returning true if there exists a point within 
+   * covered_voxel_ which was closer to LiDAR than current query point.
+   * 
+   * @tparam PointType signifies the type of the query point.
+   * @param point query point.
+   * @param occlusion_threshold threshold.
+   * @return true/false on whether point is visible given LiDAR pose.
    */
   template <class PointType>
   bool CheckVisibility(const PointType& point, double occlusion_threshold) const

@@ -349,6 +349,13 @@ void ViewPointManager::UpdateOrigin()
   }
 }
 
+/**
+ * Returns either viewpoint_ind or array_ind depending on use_array_ind.
+ * 
+ * @param viewpoint_ind original viewpoint_index.
+ * @param use_array_ind boolean indicating if we should return array_ind or viewpoint_ind.
+ * @return viewpoint_ind or array_ind.
+ */
 int ViewPointManager::GetViewPointArrayInd(int viewpoint_ind, bool use_array_ind) const
 {
   MY_ASSERT(grid_->InRange(viewpoint_ind));
@@ -1136,6 +1143,14 @@ void ViewPointManager::ResetViewPointCoveredPointList(int viewpoint_ind, bool us
   viewpoints_[array_ind].ResetCoveredPointList();
   viewpoints_[array_ind].ResetCoveredFrontierPointList();
 }
+/**
+ * Populates current viewpoint at viewpoint_ind's covered_point_list_ with point_ind. 
+ * Reclassifies points from uncovered to covered.
+ * 
+ * @param viewpoint_ind index of query view point.
+ * @param point_ind index of point.
+ * @param use_array_ind viewpoint_ind is given in index or array index.
+ */
 void ViewPointManager::AddUncoveredPoint(int viewpoint_ind, int point_ind, bool use_array_ind)
 {
   int array_ind = GetViewPointArrayInd(viewpoint_ind, use_array_ind);
@@ -1146,6 +1161,14 @@ void ViewPointManager::AddUncoveredFrontierPoint(int viewpoint_ind, int point_in
   int array_ind = GetViewPointArrayInd(viewpoint_ind, use_array_ind);
   viewpoints_[array_ind].AddCoveredFrontierPoint(point_ind);
 }
+/**
+ * Returns covered_point_list_ of the viewpoint being queried. covered_point_list_ within each viewpoint
+ * consists of points that are VisibleByViewPoint.
+ * 
+ * @param viewpoint_ind index of query view point.
+ * @param use_array_ind viewpoint_ind is given in index or array index.
+ * @return covered point list of viewpoint being queried.
+ */
 const std::vector<int>& ViewPointManager::GetViewPointCoveredPointList(int viewpoint_ind, bool use_array_ind) const
 {
   int array_ind = GetViewPointArrayInd(viewpoint_ind, use_array_ind);
@@ -1170,6 +1193,16 @@ int ViewPointManager::GetViewPointCoveredFrontierPointNum(int viewpoint_ind, boo
   return viewpoints_[array_ind].GetCoveredFrontierPointNum();
 }
 
+/**
+ * Gets the points a viewpoint covers, covered_point_list_, from supplied viewpoint_index.
+ * For each covered point (at point_ind), checks if the point is within the point_list range.
+ * As long as point_list of covered point (at point_ind) is false, increment covered_point_num.
+ * 
+ * @param point_list
+ * @param viewpoint_index
+ * @param use_array_ind
+ * @return The number of covered points.
+ */
 int ViewPointManager::GetViewPointCoveredPointNum(const std::vector<bool>& point_list, int viewpoint_index,
                                                   bool use_array_ind)
 {

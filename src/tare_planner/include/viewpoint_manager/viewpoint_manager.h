@@ -225,6 +225,16 @@ public:
     return vp_.kCoverageDilationRadius;
   }
 
+  /**
+   * For a given surface point, check if viewpoint covers it by verifying 
+   * both equations 2, 3 in paper have been satisfied. 
+   * Also checks if point is visible in the LiDAR model.
+   * 
+   * @tparam PointType type of query point.
+   * @param point query point
+   * @param viewpoint_ind index of viewpoint
+   * @return true if a surface patch is covered by viewpoint.
+   */
   template <class PointType>
   bool VisibleByViewPoint(const PointType& point, int viewpoint_ind)
   {
