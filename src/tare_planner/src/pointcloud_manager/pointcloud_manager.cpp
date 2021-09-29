@@ -278,6 +278,12 @@ void PointCloudManager::UpdateOldCloudPoints()
   }
 }
 
+/**
+ * Iterates through all points within the pointcloud grid and sets 
+ * their green values to 255 as long as it is greater than 0.
+ * 
+ * A green value of 255 indicates the point is covered.
+ */
 void PointCloudManager::UpdateCoveredCloudPoints()
 {
   for (int i = 0; i < pointcloud_grid_->GetCellNumber(); ++i)
@@ -293,6 +299,12 @@ void PointCloudManager::UpdateCoveredCloudPoints()
   }
 }
 
+/**
+ * Iterates through a specific point within the pointcloud grid and sets 
+ * its value to 255.
+ * 
+ * A green value of 255 indicates the point is covered.
+ */
 void PointCloudManager::UpdateCoveredCloudPoints(int cloud_index, int point_index)
 {
   int cloud_num = pointcloud_grid_->GetCellNumber();

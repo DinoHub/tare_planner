@@ -30,6 +30,12 @@ LocalCoveragePlanner::LocalCoveragePlanner(ros::NodeHandle& nh)
   parameters_.ReadParameters(nh);
 }
 
+/**
+ * Attempts to get the latest global path node that is not GLOBAL_VIEWPOINT or HOME.
+ * 
+ * @param global_path
+ * @return index of closest candidate viewpoint to the latest global path node, or robot viewpoint if invalid. 
+ */
 int LocalCoveragePlanner::GetBoundaryViewpointIndex(const exploration_path_ns::ExplorationPath& global_path)
 {
   int boundary_viewpoint_index = robot_viewpoint_ind_;
@@ -52,6 +58,11 @@ int LocalCoveragePlanner::GetBoundaryViewpointIndex(const exploration_path_ns::E
   return boundary_viewpoint_index;
 }
 
+/**
+ * Updates member variables for start viewpoint and end viewpoint.
+ * 
+ * @param global_path
+ */
 void LocalCoveragePlanner::GetBoundaryViewpointIndices(exploration_path_ns::ExplorationPath global_path)
 {
   start_viewpoint_ind_ = GetBoundaryViewpointIndex(global_path);
@@ -59,12 +70,20 @@ void LocalCoveragePlanner::GetBoundaryViewpointIndices(exploration_path_ns::Expl
   end_viewpoint_ind_ = GetBoundaryViewpointIndex(global_path);
 }
 
+/**
+ * Populates indexes of navigation viewpoints.
+ * 
+ * @param global_path
+ * @param[out] navigation_viewpoint_indices consists of start and end viewpoints of the global path, robot 
+ * viewpoint, and lookahead viewpoint.
+ */
 void LocalCoveragePlanner::GetNavigationViewPointIndices(exploration_path_ns::ExplorationPath global_path,
                                                          std::vector<int>& navigation_viewpoint_indices)
 {
   // Get start and end point
   robot_viewpoint_ind_ = viewpoint_manager_->GetNearestCandidateViewPointInd(robot_position_);
   lookahead_viewpoint_ind_ = viewpoint_manager_->GetNearestCandidateViewPointInd(lookahead_point_);
+  // Sets lookahead point to be current robot viewpoint if lookahead point is invalid, or not updated yet.
   if (!lookahead_point_update_ || !viewpoint_manager_->InRange(lookahead_viewpoint_ind_))
   {
     lookahead_viewpoint_ind_ = robot_viewpoint_ind_;
@@ -79,6 +98,14 @@ void LocalCoveragePlanner::GetNavigationViewPointIndices(exploration_path_ns::Ex
   navigation_viewpoint_indices.push_back(lookahead_viewpoint_ind_);
 }
 
+/**
+ * Iterates through the covered points of the current viewpoint, and update the corresponding point to true 
+ * within the point coverage boolean mask.
+ * 
+ * @param point_list boolean list of uncovered points.
+ * @param viewpoint_index input viewpoint to check.
+ * @param use_array_ind array indices or viewpoint indices.
+ */
 void LocalCoveragePlanner::UpdateViewPointCoveredPoint(std::vector<bool>& point_list, int viewpoint_index,
                                                        bool use_array_ind)
 {
@@ -88,6 +115,14 @@ void LocalCoveragePlanner::UpdateViewPointCoveredPoint(std::vector<bool>& point_
     point_list[point_ind] = true;
   }
 }
+/**
+ * Iterates through the covered frontier points of the current viewpoint, and update the corresponding point to true 
+ * within the frontier point coverage boolean mask.
+ * 
+ * @param point_list boolean list of uncovered frontier points.
+ * @param viewpoint_index input viewpoint to check.
+ * @param use_array_ind array indices or viewpoint indices.
+ */
 void LocalCoveragePlanner::UpdateViewPointCoveredFrontierPoint(std::vector<bool>& frontier_point_list,
                                                                int viewpoint_index, bool use_array_ind)
 {
@@ -99,8 +134,8 @@ void LocalCoveragePlanner::UpdateViewPointCoveredFrontierPoint(std::vector<bool>
 }
 
 /**
- * Places ViewpointCandidates with their point count into cover_point_queue and frontier_queue. 
- * Only deals with frontiers if use_frontier_ is true. Sorts the queues in descending order.
+ * Places viewpoint candidates with covered point count into a queue. Sorts the queue in descending order, 
+ * to place viewpoint candidates with largest covered point first.
  * 
  * @param[out] cover_point_queue Number of points covered and the viewpoint index itself, desc order.
  * @param[out] frontier_queue Number of frontier points covered and the viewpoint index itself, desc order.
@@ -635,15 +670,22 @@ exploration_path_ns::ExplorationPath LocalCoveragePlanner::SolveTSP(const std::v
 }
 
 /**
- * Collates viewpoint indices in navigation_viewpoint_indices from the global path through GetNavigationViewPointIndices.
+ * TODO: finish documenting function calls from here.
+ * Computes local path for planner using TSP.
  * 
- * For each viewpoint in last_selected_viewpoint_array_indices, if viewpoint is valid and covers more points than
- * kMinAddPointNum, push indices to reused_viewpoint_indices. If frontiers are used, check if viewpoint covers more frontier
- * points than kMinAddFrontierPointNum.
- * 
+ * Collates viewpoint indices (start, end, robot viewpoint and lookahead viewpoint).
+ * Filters previously selected viewpoint array, finding those that are still reusable.
  * Merge points within reused_viewpoint_indices and navigation_viewpoint_indices to pre_selected_viewpoint_array_indices.
- * Iterate through pre_selected_viewpoint_array_indices and update the number of covered points and frontier points.
+ * Iterate through pre_selected_viewpoint_array_indices and update the number of covered points and frontier points, as well 
+ * as their corresponding boolean masks. 
+ * Enqueue viewpoint candidates according to the number of covered points. 
+ * Performs algorithm 1 (compute local path line 5:) if current viewpoint candidates meet criteria. Otherwise, perform on 
+ * previous selected viewpoint candidates (if any).
  * 
+ * @param global_path global path.
+ * @param uncovered_point_num surface points covered by unvisited viewpoints.
+ * @param uncovered_frontier_point_num surface frontier points covered by unvisited viewpoints.
+ * @return computed local path.
  */
 exploration_path_ns::ExplorationPath LocalCoveragePlanner::SolveLocalCoverageProblem(
     const exploration_path_ns::ExplorationPath& global_path, int uncovered_point_num, int uncovered_frontier_point_num)
@@ -674,6 +716,7 @@ exploration_path_ns::ExplorationPath LocalCoveragePlanner::SolveLocalCoveragePro
 
   std::vector<int> pre_selected_viewpoint_array_indices;
   std::vector<int> reused_viewpoint_indices;
+  // Filters through last selected viewpoints for points that cover more than kMinAddPointNum, and pushes them into reused_viewpoint_indices. 
   for (auto& viewpoint_array_ind : last_selected_viewpoint_array_indices_)
   {
     if (viewpoint_manager_->ViewPointVisited(viewpoint_array_ind, true) ||
@@ -697,6 +740,7 @@ exploration_path_ns::ExplorationPath LocalCoveragePlanner::SolveLocalCoveragePro
     }
   }
 
+  // Merging reused_viewpoint_indices and navigation_viewpoint_indices into pre_selected_viewpoint_array_indices.
   for (const auto& ind : reused_viewpoint_indices)
   {
     int viewpoint_array_ind = viewpoint_manager_->GetViewPointArrayInd(ind);
@@ -719,7 +763,7 @@ exploration_path_ns::ExplorationPath LocalCoveragePlanner::SolveLocalCoveragePro
     }
   }
 
-  // Enqueue candidate viewpoints
+  // Enqueue candidate viewpoints (viewpoints with largest covered points first)
   std::vector<std::pair<int, int>> queue;
   std::vector<std::pair<int, int>> frontier_queue;
   EnqueueViewpointCandidates(queue, frontier_queue, covered, frontier_covered, pre_selected_viewpoint_array_indices);
@@ -728,9 +772,11 @@ exploration_path_ns::ExplorationPath LocalCoveragePlanner::SolveLocalCoveragePro
   viewpoint_sampling_runtime_ += viewpoint_sampling_timer.GetDuration(kRuntimeUnit);
 
   std::vector<int> ordered_viewpoint_indices;
+  // Checks if queue is empty, or if viewpoint candidate with greatest number of covered points meets specifications.
   if (!queue.empty() && queue[0].first > parameters_.kMinAddPointNum)
   {
     double min_path_length = DBL_MAX;
+    // In line with Algorithm 1 (Compute local path)
     for (int itr = 0; itr < parameters_.kLocalPathOptimizationItrMax; itr++)
     {
       std::vector<int> selected_viewpoint_indices_itr;
@@ -807,6 +853,7 @@ exploration_path_ns::ExplorationPath LocalCoveragePlanner::SolveLocalCoveragePro
     last_selected_viewpoint_indices_ = ordered_viewpoint_indices;
   }
 
+  // last_selected_viewpoint_indices_ are now the viewpoints selected for local TSP.
   last_selected_viewpoint_array_indices_.clear();
   for (const auto& ind : last_selected_viewpoint_indices_)
   {
@@ -814,11 +861,13 @@ exploration_path_ns::ExplorationPath LocalCoveragePlanner::SolveLocalCoveragePro
     last_selected_viewpoint_array_indices_.push_back(array_ind);
   }
 
+  // resetting selected viewpoints from previous run.
   int viewpoint_num = viewpoint_manager_->GetViewPointNum();
   for (int i = 0; i < viewpoint_num; i++)
   {
     viewpoint_manager_->SetViewPointSelected(i, false, true);
   }
+  // setting viewpoints that were selected in this run to be true.
   for (const auto& viewpoint_index : last_selected_viewpoint_indices_)
   {
     if (viewpoint_index != robot_viewpoint_ind_ && viewpoint_index != start_viewpoint_ind_ &&
