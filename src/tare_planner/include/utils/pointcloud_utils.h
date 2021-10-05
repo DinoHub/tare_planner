@@ -54,6 +54,19 @@ public:
   {
     kNeighborThreshold = neighbor_threshold;
   }
+  /**
+   * Function looks for vertical surfaces within input cloud. 
+   * 
+   * Moves input cloud into an extractor cloud, where z values have been moved to intensity (to prevent confusing KD-Tree). 
+   * Iterates through all points within the extractor cloud, and uses KD Tree does a radius search to grab neighbors near it. 
+   * Point is considered a vertical surface if its z value is within range, and it contains enough neighbors to constitute 
+   * as a surface.
+   * 
+   * @tparam PCLPointType for point cloud.
+   * @param cloud input cloud.
+   * @param z_max maximum z value to consider.
+   * @param z_min minimum z value to consider.
+   */
   template <class PCLPointType>
   void ExtractVerticalSurface(typename pcl::PointCloud<PCLPointType>::Ptr& cloud, double z_max = DBL_MAX,
                               double z_min = -DBL_MAX)
@@ -80,6 +93,7 @@ public:
       extractor_kdtree_->radiusSearch(point, kRadiusThreshold, neighbor_indices, neighbor_sqdist);
       bool is_vertical = false;
       int neighbor_count = 0;
+      // vertical surface: point has to have a z value within range, and enough neighboring indices.
       for (const auto& idx : neighbor_indices)
       {
         double z_diff = std::abs(point.intensity - extractor_cloud_->points[idx].intensity);
@@ -105,6 +119,21 @@ public:
     extract.filter(*cloud);
   }
 
+  /**
+   * Function looks for vertical surfaces within input cloud. 
+   * 
+   * Moves input cloud into an extractor cloud, where z values have been moved to intensity (to prevent confusing KD-Tree). 
+   * Iterates through all points within the extractor cloud, and uses KD Tree does a radius search to grab neighbors near it. 
+   * Point is considered a vertical surface if its z value is within range, and it contains enough neighbors to constitute 
+   * as a surface. Populates cloud_out with points.
+   * 
+   * @tparam PCLPointType point type for input point cloud.
+   * @tparam OutputPCLPointType point type for output point cloud.
+   * @param cloud_in input cloud.
+   * @param[out] cloud_out output_cloud.
+   * @param z_max maximum z value to consider.
+   * @param z_min minimum z value to consider.
+   */
   template <class InputPCLPointType, class OutputPCLPointType>
   void ExtractVerticalSurface(typename pcl::PointCloud<InputPCLPointType>::Ptr& cloud_in,
                               typename pcl::PointCloud<OutputPCLPointType>::Ptr& cloud_out, double z_max = DBL_MAX,

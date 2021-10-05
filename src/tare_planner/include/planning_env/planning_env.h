@@ -90,6 +90,9 @@ public:
   {
     parameters_.kUseFrontier = use_frontier;
   }
+  /**
+   * //TODO: check out the rolling grid / rolling occupancy grid representations to understand.
+   */
   void UpdateRobotPosition(geometry_msgs::Point robot_position)
   {
     bool pointcloud_manager_rolling = pointcloud_manager_->UpdateRobotPosition(robot_position);
@@ -145,6 +148,10 @@ public:
     }
   }
 
+  /**
+   * Updates keypose cloud locally within the planning environment. Trims coverage cloud to be within boundary.
+   * Extracts vertical surfaces and populates vertical surface cloud. Updates pointcloud manager. 
+   */
   template <class PCLPointType>
   void UpdateKeyposeCloud(typename pcl::PointCloud<PCLPointType>::Ptr& keypose_cloud)
   {
@@ -243,6 +250,11 @@ public:
     coverage_boundary_ = polygon;
   }
 
+  /**
+   * Keeps only points that are within the coverage boundary.
+   * 
+   * @param cloud cloud to be filtered within coverage boundary.
+   */
   template <class PCLPointType>
   void GetCoverageCloudWithinBoundary(typename pcl::PointCloud<PCLPointType>::Ptr& cloud)
   {
@@ -322,6 +334,7 @@ private:
   pcl::KdTreeFLANN<PlannerCloudPointType>::Ptr stacked_vertical_surface_cloud_kdtree_;
   pointcloud_utils_ns::PointCloudDownsizer<PlannerCloudPointType> stacked_cloud_downsizer_;
   pointcloud_utils_ns::PointCloudDownsizer<pcl::PointXYZI> collision_cloud_downsizer_;
+  // Point cloud that contains vertical surfaces that are within z range and contain sufficient neighbors.
   std::unique_ptr<pointcloud_utils_ns::PCLCloud<PlannerCloudPointType>> vertical_surface_cloud_;
   pointcloud_utils_ns::VerticalSurfaceExtractor vertical_surface_extractor_;
   pointcloud_utils_ns::VerticalSurfaceExtractor vertical_frontier_extractor_;

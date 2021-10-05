@@ -39,6 +39,13 @@ public:
                              double cell_size = 24, double cell_height = 3, int neighbor_cell_num = 5);
   ~PointCloudManager() = default;
   bool UpdateRobotPosition(const geometry_msgs::Point& robot_position);
+  /**
+   * For each point in the input cloud, update the pointcloud grid if it is within range.
+   * Iterate through all points in pointcloud_grid_ and filter.
+   * 
+   * @tparam InputPCLPointType
+   * @param cloud_in input cloud.
+   */
   template <class InputPCLPointType>
   void UpdatePointCloud(const pcl::PointCloud<InputPCLPointType>& cloud_in)
   {

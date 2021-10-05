@@ -36,7 +36,7 @@ public:
   explicit LocalCoveragePlanner(ros::NodeHandle& nh);
   ~LocalCoveragePlanner() = default;
 
-  // Update representation
+  // Updates representation. Sets robot position within local coverage planner.
   void SetRobotPosition(const Eigen::Vector3d& robot_position)
   {
     robot_position_ = robot_position;

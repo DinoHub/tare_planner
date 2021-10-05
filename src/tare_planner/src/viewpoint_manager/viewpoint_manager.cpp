@@ -258,9 +258,16 @@ void ViewPointManager::GetCollisionCorrespondence()
   timer.Stop(false);
 }
 
+/**
+ * If uninitialized, updates origin based on robot position. Initializes all viewpoints by iterating through all 
+ * possible combinations of viewpoint numbers, setting positions of all viewpoints and resetting them.
+ * 
+ * TODO: this includes a lot of viewpoint math and rollover steps that I'm not sure I'll be able to understand.
+ */
 bool ViewPointManager::UpdateRobotPosition(const Eigen::Vector3d& robot_position)
 {
   robot_position_ = robot_position;
+  // Initialization - initializes all possible viewpoints and resets them. 
   if (!initialized_)
   {
     initialized_ = true;
@@ -1063,6 +1070,12 @@ bool ViewPointManager::IsViewPointCandidate(int viewpoint_ind, bool use_array_in
   int array_ind = GetViewPointArrayInd(viewpoint_ind, use_array_ind);
   return viewpoints_[array_ind].IsCandidate();
 }
+/**
+ * Sets viewpoint candidate status.
+ * @param viewpoint_ind viewpoint.
+ * @param candidate status indicating candidature.
+ * @param use_array_ind
+ */
 void ViewPointManager::SetViewPointCandidate(int viewpoint_ind, bool candidate, bool use_array_ind)
 {
   int array_ind = GetViewPointArrayInd(viewpoint_ind, use_array_ind);
@@ -1223,7 +1236,7 @@ int ViewPointManager::GetViewPointCoveredFrontierPointNum(int viewpoint_ind, boo
 
 /**
  * Iterates through a list of points that the input viewpoint covers, and increments a counter of 
- * covered points if the iterated point queried from point_list is false. Returns the number of
+ * covered points if the point hasn't been covered in the input point list. Returns total number of
  * covered points.
  * 
  * @param point_list
@@ -1245,6 +1258,16 @@ int ViewPointManager::GetViewPointCoveredPointNum(const std::vector<bool>& point
   }
   return covered_point_num;
 }
+/**
+ * Iterates through a list of points that the input viewpoint covers, and increments a counter of 
+ * covered points if the frontier point hasn't been covered in the frontier point list. Returns total number of
+ * covered points.
+ * 
+ * @param point_list
+ * @param viewpoint_index
+ * @param use_array_ind
+ * @return The number of covered points.
+ */
 int ViewPointManager::GetViewPointCoveredFrontierPointNum(const std::vector<bool>& frontier_point_list,
                                                           int viewpoint_index, bool use_array_ind)
 {
@@ -1279,14 +1302,22 @@ void ViewPointManager::UpdateViewPointCoveredFrontierPoint(std::vector<bool>& fr
   }
 }
 
+/**
+ * Updates view point candidates into the viewpoint candidate cloud or the viewpoint collision cloud. 
+ * Generates KD Trees for both clouds, and creates a graph out of the new candidate viewpoints.
+ * 
+ * @return number of new viewpoint candidates.
+ */
 int ViewPointManager::GetViewPointCandidate()
 {
   viewpoint_candidate_cloud_->clear();
   viewpoint_in_collision_cloud_->clear();
   candidate_indices_.clear();
+  // Populates viewpoint_candidate_cloud_ and viewpoint_in_collision_cloud_ depending on viewpoint status.
   for (int i = 0; i < vp_.kViewPointNumber; i++)
   {
     SetViewPointCandidate(i, false);
+    // Point meets ideal viewpoint conditions, populate viewpoint_candidate_cloud_.
     if (!ViewPointInCollision(i) && ViewPointInLineOfSight(i) && ViewPointConnected(i))
     {
       SetViewPointCandidate(i, true);
@@ -1298,6 +1329,8 @@ int ViewPointManager::GetViewPointCandidate()
       point.z = viewpoint_position.z;
       viewpoint_candidate_cloud_->points.push_back(point);
     }
+    // Point is in collision, populate viewpoint_candidate_cloud_.
+    // TODO: else if to reduce unnecessary check.
     if (ViewPointInCollision(i))
     {
       geometry_msgs::Point viewpoint_position = GetViewPointPosition(i);
@@ -1326,6 +1359,13 @@ int ViewPointManager::GetViewPointCandidate()
   return candidate_indices_.size();
 }
 
+/**
+ * Uses A* Search to get the shortest path from starting viewpoint to target viewpoint.
+ * 
+ * @param start_viewpoint_ind index of starting viewpoint.
+ * @param target_viewpoint_ind index of ending viewpoint.
+ * @return path with poses of view point positions from start to target.
+ */
 nav_msgs::Path ViewPointManager::GetViewPointShortestPath(int start_viewpoint_ind, int target_viewpoint_ind)
 {
   nav_msgs::Path path;
@@ -1426,6 +1466,11 @@ bool ViewPointManager::GetViewPointShortestPathWithMaxLength(const Eigen::Vector
   return found_path;
 }
 
+/**
+ * For all viewpoint candidates, update viewpoint in exploring cell status.
+ * 
+ * @param grid_world
+ */
 void ViewPointManager::UpdateCandidateViewPointCellStatus(std::unique_ptr<grid_world_ns::GridWorld> const& grid_world)
 {
   for (const auto& ind : candidate_indices_)
@@ -1450,6 +1495,13 @@ void ViewPointManager::UpdateCandidateViewPointCellStatus(std::unique_ptr<grid_w
   }
 }
 
+/**
+ * Constructs a candidate view point graph, while simultaneously updating distances and positions.
+ * 
+ * @param[out] graph candidate viewpoint graph.
+ * @param[out] dist candidate viewpoints' distances from neighboring candidates.
+ * @param[out] positions candidate viewpoints' positions.
+ */
 void ViewPointManager::GetCandidateViewPointGraph(std::vector<std::vector<int>>& graph,
                                                   std::vector<std::vector<double>>& dist,
                                                   std::vector<geometry_msgs::Point>& positions)

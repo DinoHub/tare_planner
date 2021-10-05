@@ -63,6 +63,9 @@ PointCloudManager::PointCloudManager(int row_num, int col_num, int level_num, in
   rolled_in_occupancy_cloud_ = pcl::PointCloud<pcl::PointXYZI>::Ptr(new pcl::PointCloud<pcl::PointXYZI>);
 }
 
+/**
+ * Based on current robot position, set origin in point cloud grid and occupancy cloud grid.
+ */
 void PointCloudManager::UpdateOrigin()
 {
   origin_.x = robot_position_.x - (kCellSize * kRowNum) / 2;
@@ -72,6 +75,16 @@ void PointCloudManager::UpdateOrigin()
   occupancy_cloud_grid_->SetOrigin(Eigen::Vector3d(origin_.x, origin_.y, origin_.z));
 }
 
+/**
+ * Updates robot position and checks if viewpoints contain rollover. 
+ * 
+ * Collects indices of neighbors based on current robot position. Viewpoint rollover is set to be true 
+ * if there is a change in neighbor indices. New neighbor indices are populated with neighbor indices 
+ * not found in previous run. Sets origin of neighbor cells based on new robot position.
+ * 
+ * @param robot_position current robot position.
+ * @return true if viewpoints do rollover.
+ */
 bool PointCloudManager::UpdateRobotPosition(const geometry_msgs::Point& robot_position)
 {
   robot_position_ = robot_position;
@@ -142,6 +155,7 @@ void PointCloudManager::ClearNeighborCellOccupancyCloud()
     occupancy_cloud_grid_->GetCell(neighbor_ind)->clear();
   }
 }
+
 
 pcl::PointCloud<pcl::PointXYZI>::Ptr PointCloudManager::GetRolledInOccupancyCloud()
 {
@@ -266,6 +280,9 @@ int PointCloudManager::GetAllPointNum()
   return num;
 }
 
+/**
+ * Sets all points within the point cloud grid to be red.
+ */
 void PointCloudManager::UpdateOldCloudPoints()
 {
   for (int i = 0; i < pointcloud_grid_->GetCellNumber(); ++i)
