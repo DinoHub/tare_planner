@@ -236,6 +236,9 @@ void SensorCoveragePlanner3D::ExplorationStartCallback(const std_msgs::Bool::Con
   }
 }
 
+/**
+ * Updates pd_.robot_position_ and robot_yaw_, updates bool moving_forward_ and sets initialized_ to true.
+ */
 void SensorCoveragePlanner3D::StateEstimationCallback(const nav_msgs::Odometry::ConstPtr& state_estimation_msg)
 {
   pd_.robot_position_ = state_estimation_msg->pose.pose.position;
@@ -438,6 +441,9 @@ void SensorCoveragePlanner3D::UpdateKeyposeGraph()
   update_keypose_graph_timer.Stop(false);
 }
 
+/**
+ * Get and update collision cloud. Use cloud to get viewpoint candidates. Updates robot pose as visited viewpoints.
+ */
 int SensorCoveragePlanner3D::UpdateViewPoints()
 {
   misc_utils_ns::Timer collision_cloud_timer("update collision cloud");
@@ -506,6 +512,9 @@ void SensorCoveragePlanner3D::UpdateRobotViewPointCoverage()
   }
 }
 
+/**
+ * Updates covered area in the planning_env and publishes the clouds of uncovered areas.
+ */
 void SensorCoveragePlanner3D::UpdateCoveredAreas(int& uncovered_point_num, int& uncovered_frontier_point_num)
 {
   // Update covered area
@@ -521,6 +530,9 @@ void SensorCoveragePlanner3D::UpdateCoveredAreas(int& uncovered_point_num, int& 
   pd_.planning_env_->PublishUncoveredFrontierCloud();
 }
 
+/**
+ * If current position has not been visited, add it to pd_.visited_positions_
+ */
 void SensorCoveragePlanner3D::UpdateVisitedPositions()
 {
   Eigen::Vector3d robot_current_position(pd_.robot_position_.x, pd_.robot_position_.y, pd_.robot_position_.z);
@@ -584,6 +596,9 @@ void SensorCoveragePlanner3D::UpdateGlobalRepresentation()
   }
 }
 
+/** 
+ * Updates viewpoint_manager and keypose_graph and uses them to output global path
+ */
 void SensorCoveragePlanner3D::GlobalPlanning(std::vector<int>& global_cell_tsp_order,
                                              exploration_path_ns::ExplorationPath& global_path)
 {
@@ -1192,6 +1207,9 @@ void SensorCoveragePlanner3D::PrintExplorationStatus(std::string status, bool cl
   std::cout << std::endl << "\033[1;32m" << status << "\033[0m" << std::endl;
 }
 
+/**
+ * If robot is doing a large direction change, increase a counter. Else, reset the counter. If counter above threshold, activate momentum. Updates pd_.last_robot_pos_. Publishes the number of times 'momentum' was activated.
+ */
 void SensorCoveragePlanner3D::CountDirectionChange()
 {
   Eigen::Vector3d current_moving_direction_ =
@@ -1231,6 +1249,9 @@ void SensorCoveragePlanner3D::CountDirectionChange()
   momentum_activation_count_pub_.publish(momentum_activation_count_msg);
 }
 
+/**
+ * Callback every second. Defined in constructor
+ */
 void SensorCoveragePlanner3D::execute(const ros::TimerEvent&)
 {
   if (!pp_.kAutoStart && !start_exploration_)
@@ -1255,7 +1276,7 @@ void SensorCoveragePlanner3D::execute(const ros::TimerEvent&)
   }
 
   overall_processing_timer.Start();
-  if (keypose_cloud_update_)
+  if (keypose_cloud_update_) //this is set to true every 5 scans (above)
   {
     keypose_cloud_update_ = false;
 

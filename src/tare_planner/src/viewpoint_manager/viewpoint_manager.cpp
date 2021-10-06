@@ -258,6 +258,16 @@ void ViewPointManager::GetCollisionCorrespondence()
   timer.Stop(false);
 }
 
+/**
+ * Shifts origin_ (hence also local planning horizon) based on robot displacement from previous origin. Generates a grid of viewpoint positions from this origin.
+ * Theoreotically, shifts when robot displacement is >= kRolloverStepsize. However current implementation is kRolloverStepsize/2.
+ * 
+ * @param robot_position current ^x,<y,z of the robot with respect to starting position.
+ * @param kNumber Number of grids in each axis. E.g. 80 by 80 by 40
+ * @param kResolution displacement per grid in each axis. E.g. 1 grid == 0.5m in the x axis
+ * @param kRolloverStepsize Split the space into steps each with this size. E.g. 5 grids in x direction will give 80/5
+ * @return True if private variable origin_ (hence local planning horizon box) is shifted.
+ */
 bool ViewPointManager::UpdateRobotPosition(const Eigen::Vector3d& robot_position)
 {
   robot_position_ = robot_position;
@@ -265,7 +275,7 @@ bool ViewPointManager::UpdateRobotPosition(const Eigen::Vector3d& robot_position
   {
     initialized_ = true;
     UpdateOrigin();
-
+    // lays out a grid of viewpoints from the origin referenced by the middle of each grid saved in viewpoints_[ind] 
     for (int x = 0; x < vp_.kNumber.x(); x++)
     {
       for (int y = 0; y < vp_.kNumber.y(); y++)
@@ -284,18 +294,22 @@ bool ViewPointManager::UpdateRobotPosition(const Eigen::Vector3d& robot_position
     }
   }
   Eigen::Vector3i robot_grid_sub;
-  Eigen::Vector3d diff = robot_position_ - origin_;
+  Eigen::Vector3d diff = robot_position_ - origin_; 
+  // std::cout << "robot: " << robot_position_.x() << ',' << robot_position_.y() << "\norigin: " << origin_.x() << ',' << origin_.y() << "\ndiff: " << diff.x() << ',' << diff.y() << "\n\n";
   Eigen::Vector3i sub = Eigen::Vector3i::Zero();
   for (int i = 0; i < vp_.dimension_; i++)
-  {
+  { // The displacement in terms of number of steps. E.g. [2,2,0]
+    // TODO: theoreotically, result should be kept as double
     robot_grid_sub(i) = diff(i) > 0 ? static_cast<int>(diff(i) / (vp_.kRolloverStepsize(i) * vp_.kResolution(i))) : -1;
   }
 
   Eigen::Vector3i sub_diff = Eigen::Vector3i::Zero();
   for (int i = 0; i < vp_.dimension_; i++)
-  {
+  { // The number of steps from previous robot position. E.g. [-1,0,0]. There are 5 steps across 1 dimension, previous robot position is in the middle (2.5) 
+    // TODO: thereotically, both terms should be kept as a double and the result casted to int (floored)
     sub_diff(i) = (vp_.kNumber(i) / vp_.kRolloverStepsize(i)) / 2 - robot_grid_sub(i);
   }
+  // std::cout << "diff: " << diff << "\n\n" << robot_grid_sub << "\n\n" << "sub_diff: " << sub_diff << "\n\n" << std::endl;
 
   if (sub_diff.x() == 0 && sub_diff.y() == 0 && sub_diff.z() == 0)
   {
@@ -303,6 +317,7 @@ bool ViewPointManager::UpdateRobotPosition(const Eigen::Vector3d& robot_position
   }
 
   Eigen::Vector3i rollover_step;
+  // Number of grids to shift by. = step size * number of steps
   rollover_step.x() = std::abs(sub_diff.x()) > 0 ?
                           vp_.kRolloverStepsize.x() * ((sub_diff.x() > 0) ? 1 : -1) * std::abs(sub_diff.x()) :
                           0;
@@ -320,11 +335,13 @@ bool ViewPointManager::UpdateRobotPosition(const Eigen::Vector3d& robot_position
   misc_utils_ns::Timer reset_timer("reset viewpoint");
   reset_timer.Start();
 
+  // Shifts the origin (by displacement). Due to the way sub_diff was calculated, this is minus instead of plus. diff will now be relative to this new origin. Also shifts the local planning horizon. = number of grids * size of grid
   //   origin_ = origin_ - rollover_step.cast<double>() * vp_.kResolution;
   origin_.x() -= rollover_step.x() * vp_.kResolution.x();
   origin_.y() -= rollover_step.y() * vp_.kResolution.y();
   origin_.z() -= rollover_step.z() * vp_.kResolution.z();
 
+  // Same as the initialized_ part above to generate the grid of viewpoints from updated origin_. However, here we start with indices instead hence we need to transform it to get its x and y.
   grid_->GetUpdatedIndices(updated_viewpoint_indices_);
   for (const auto& ind : updated_viewpoint_indices_)
   {
@@ -341,12 +358,16 @@ bool ViewPointManager::UpdateRobotPosition(const Eigen::Vector3d& robot_position
   return true;
 }
 
+/**
+ * Sets origin(x,y,z; in displacement) taking initial robot position as the reference (0,0,0) 
+ */
 void ViewPointManager::UpdateOrigin()
 {
   for (int i = 0; i < vp_.dimension_; i++)
   {
     origin_(i) = robot_position_(i) - (vp_.kResolution(i) * vp_.kNumber(i)) / 2.0;
   }
+  std::cout << "robot: " << robot_position_ << "\n\n" << "origin: " << origin_ << "\n\n";
 }
 
 int ViewPointManager::GetViewPointArrayInd(int viewpoint_ind, bool use_array_ind) const
@@ -838,6 +859,9 @@ void ViewPointManager::CheckViewPointConnectivity()
   }
 }
 
+/**
+ * Updates the points in local horizon near each input point as visited in grid_
+ */
 void ViewPointManager::UpdateViewPointVisited(const std::vector<Eigen::Vector3d>& positions)
 {
   if (!initialized_)
@@ -849,7 +873,7 @@ void ViewPointManager::UpdateViewPointVisited(const std::vector<Eigen::Vector3d>
     {
       continue;
     }
-    Eigen::Vector3i viewpoint_sub = GetViewPointSub(position);
+    Eigen::Vector3i viewpoint_sub = GetViewPointSub(position); // A scaled position vector from origin to position
     if (grid_->InRange(viewpoint_sub))
     {
       int viewpoint_ind = grid_->Sub2Ind(viewpoint_sub);
@@ -965,7 +989,7 @@ void ViewPointManager::SetViewPointHeightWithTerrain(const pcl::PointCloud<pcl::
   }
 }
 
-// Reset viewpoint
+// Reset viewpoint, set attributes to default
 void ViewPointManager::ResetViewPoint(int viewpoint_ind, bool use_array_ind)
 {
   int array_ind = GetViewPointArrayInd(viewpoint_ind, use_array_ind);
@@ -1218,6 +1242,9 @@ void ViewPointManager::UpdateViewPointCoveredFrontierPoint(std::vector<bool>& fr
   }
 }
 
+/**
+ * Check if each viewpoint candidate is in collision. Maintains a candidate cloud and a in_collision cloud. Construct a graph of the candidates.
+ */
 int ViewPointManager::GetViewPointCandidate()
 {
   viewpoint_candidate_cloud_->clear();
