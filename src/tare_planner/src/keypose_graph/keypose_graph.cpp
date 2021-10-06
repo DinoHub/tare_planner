@@ -719,6 +719,13 @@ void KeyposeGraph::GetClosestNodeIndAndDistance(const geometry_msgs::Point& poin
   }
 }
 
+/**
+ * Returns closest node index and its distance to query point. 
+ * 
+ * @param point query point.
+ * @param[out] node_ind index of node closest to point.
+ * @param[out] dist distance of node to the point.
+ */
 void KeyposeGraph::GetClosestConnectedNodeIndAndDistance(const geometry_msgs::Point& point, int& node_ind, double& dist)
 {
   if (connected_nodes_cloud_->points.empty())
@@ -873,9 +880,22 @@ bool KeyposeGraph::GetShortestPathWithMaxLength(const geometry_msgs::Point& star
   return found_path;
 }
 
+/**
+ * Gets the shortest path from start to target points.
+ * 
+ * Uses A* search to check for shortest path from index closest to start point and index closest ot target point. 
+ * Updates path if specified and returns the distance of the shortest path.
+ * 
+ * @param start_point
+ * @param target_point
+ * @param get_path boolean specifying if path is required.
+ * @param[out] path shortest path.
+ * @param use_connected_nodes boolean specifying if only connected nodes are to be used.
+ */
 double KeyposeGraph::GetShortestPath(const geometry_msgs::Point& start_point, const geometry_msgs::Point& target_point,
                                      bool get_path, nav_msgs::Path& path, bool use_connected_nodes)
 {
+  // Return straight path between start and target point if there are one or less nodes in the keypose graph only.
   if (nodes_.size() < 2)
   {
     if (get_path)
@@ -899,6 +919,7 @@ double KeyposeGraph::GetShortestPath(const geometry_msgs::Point& start_point, co
     {
       continue;
     }
+    // Iterates through all nodes and find the shortest node from beginning / target.
     if (allow_vertical_edge_)
     {
       double dist_to_start =
@@ -920,6 +941,7 @@ double KeyposeGraph::GetShortestPath(const geometry_msgs::Point& start_point, co
     {
       double z_diff_to_start = std::abs(nodes_[i].position_.z - start_point.z);
       double z_diff_to_target = std::abs(nodes_[i].position_.z - target_point.z);
+      // Looks for edges that are less than 1.5m.
       // TODO: parameterize this
       if (z_diff_to_start < 1.5)
       {
@@ -968,6 +990,9 @@ double KeyposeGraph::GetShortestPath(const geometry_msgs::Point& start_point, co
   return shortest_dist;
 }
 
+/**
+ * Returns the very first keypose position within the keypose graph.
+ */
 geometry_msgs::Point KeyposeGraph::GetFirstKeyposePosition()
 {
   geometry_msgs::Point point;
@@ -1015,6 +1040,11 @@ void KeyposeGraph::GetKeyposePositions(std::vector<Eigen::Vector3d>& positions)
   }
 }
 
+/**
+ * Queries keypose graph for node position.
+ * 
+ * @param node_ind query node.
+ */
 geometry_msgs::Point KeyposeGraph::GetNodePosition(int node_ind)
 {
   geometry_msgs::Point node_position;

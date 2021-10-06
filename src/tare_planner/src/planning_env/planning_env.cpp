@@ -224,6 +224,11 @@ void PlanningEnv::UpdateFrontiers()
   }
 }
 
+/**
+ * Copies input cloud into terrain cloud.
+ * 
+ * @param cloud cloud to be copied.
+ */
 void PlanningEnv::UpdateTerrainCloud(const pcl::PointCloud<pcl::PointXYZI>::Ptr& cloud)
 {
   if (cloud->points.empty())
@@ -236,6 +241,17 @@ void PlanningEnv::UpdateTerrainCloud(const pcl::PointCloud<pcl::PointXYZI>::Ptr&
   }
 }
 
+/**
+ * Given an input point (x,y,z), checks if it is in collision.
+ * 
+ * Checks the KD Tree of the stacked vertical surface cloud within a radius search. If the number 
+ * of neighbors exceed a threshold, consider the point to be in collision.
+ * 
+ * @param x point's x-value
+ * @param y point's y-value
+ * @param z point's z-value
+ * @return collision status
+ */
 bool PlanningEnv::InCollision(double x, double y, double z) const
 {
   if (stacked_cloud_->cloud_->points.empty())
@@ -261,6 +277,28 @@ bool PlanningEnv::InCollision(double x, double y, double z) const
   }
 }
 
+/**
+ * Given the robot's viewpoint and viewpoint_manager, iterate through the planner cloud and 
+ * change all covered point colors to green within the planner cloud.
+ * 
+ * Iterates through the planner cloud. For each point, checks if point are within vertical FOV 
+ * and satisfies equation 2. 
+ * 
+ * If the point doesn't meet above criteria, the algorithm iterates through ViewPoint candidates 
+ * and checks if the ViewPoint can see the point. Point is considered covered.
+ * 
+ * All covered points have their colors changed to green and are added to a list.
+ * 
+ * Creates a squeezed planner cloud, dilated by a ratio in the z-axis, and converts it into a KD Tree. 
+ * Conducts a radius search within a radius to collect indices of points near covered points and mark 
+ * them as covered as well (changing color to green).
+ * 
+ * Finally, iterates through all points within the planner cloud, and updates all points that are covered 
+ * within the pointcloud manager.
+ * 
+ * @param robot_viewpoint manages what a robot is able to perceive.
+ * @param viewpoint_manager manages viewpoints within the environment.
+ */
 void PlanningEnv::UpdateCoveredArea(const lidar_model_ns::LiDARModel& robot_viewpoint,
                                     const std::shared_ptr<viewpoint_manager_ns::ViewPointManager>& viewpoint_manager)
 {
@@ -329,6 +367,7 @@ void PlanningEnv::UpdateCoveredArea(const lidar_model_ns::LiDARModel& robot_view
   {
     PlannerCloudPointType point = planner_cloud_->cloud_->points[ind];
     std::vector<int> nearby_indices;
+    // TODO: nearby_sqdist is unused.
     std::vector<float> nearby_sqdist;
     squeezed_planner_cloud_kdtree_->radiusSearch(point, coverage_dilation_radius, nearby_indices, nearby_sqdist);
     if (!nearby_indices.empty())
@@ -354,6 +393,20 @@ void PlanningEnv::UpdateCoveredArea(const lidar_model_ns::LiDARModel& robot_view
   }
 }
 
+/**
+ * This function looks for uncovered points - points that are coverable by viewpoints, but have yet to be 
+ * covered, maintains a tally of them, and adds them to the uncovered cloud and uncovered frontier cloud.
+ * 
+ * Iterates through all points within the planner cloud. For each point, iterate through all viewpoint 
+ * candidates. If the viewpoint candidate has not been visited, and the current point is visible by the 
+ * viewpoint, add uncovered point number to viewpoint's covered point list and push point to uncovered_cloud.
+ * 
+ * Does the same for frontier points, if kUseFrontier is true.
+ * 
+ * @param viewpoint_manager reference to viewpoint_manager for assessing viewpoint information.
+ * @param[out] uncovered_point_num tally of uncovered points actually coverable by viewpoint.
+ * @param[out] uncovered_frontier_point_num tally of uncovered frontier points actually coverable by viewpoint.
+ */
 void PlanningEnv::GetUncoveredArea(const std::shared_ptr<viewpoint_manager_ns::ViewPointManager>& viewpoint_manager,
                                    int& uncovered_point_num, int& uncovered_frontier_point_num)
 {

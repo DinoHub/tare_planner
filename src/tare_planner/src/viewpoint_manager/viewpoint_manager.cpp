@@ -271,6 +271,7 @@ void ViewPointManager::GetCollisionCorrespondence()
 bool ViewPointManager::UpdateRobotPosition(const Eigen::Vector3d& robot_position)
 {
   robot_position_ = robot_position;
+  // Initialization - initializes all possible viewpoints and resets them. 
   if (!initialized_)
   {
     initialized_ = true;
@@ -370,6 +371,13 @@ void ViewPointManager::UpdateOrigin()
   std::cout << "robot: " << robot_position_ << "\n\n" << "origin: " << origin_ << "\n\n";
 }
 
+/**
+ * Returns either viewpoint_ind or array_ind depending on use_array_ind.
+ * 
+ * @param viewpoint_ind original viewpoint_index.
+ * @param use_array_ind boolean indicating if we should return array_ind or viewpoint_ind.
+ * @return viewpoint_ind or array_ind.
+ */
 int ViewPointManager::GetViewPointArrayInd(int viewpoint_ind, bool use_array_ind) const
 {
   MY_ASSERT(grid_->InRange(viewpoint_ind));
@@ -381,6 +389,15 @@ int ViewPointManager::GetViewPointInd(int viewpoint_array_ind) const
   return grid_->GetInd(viewpoint_array_ind);
 }
 
+/**
+ * Given a position, return subscript of grid. 
+ * 
+ * Function achieves this by getting the difference of the position from the origin. 
+ * Sets subscript to -1 where difference is negative.
+ * 
+ * @param position query position.
+ * @return subscript of grid, with dimensions set to -1 if invalid.
+ */
 Eigen::Vector3i ViewPointManager::GetViewPointSub(Eigen::Vector3d position)
 {
   Eigen::Vector3d diff = position - origin_;
@@ -392,6 +409,12 @@ Eigen::Vector3i ViewPointManager::GetViewPointSub(Eigen::Vector3d position)
   return sub;
 }
 
+/**
+ * Gets subscripts, checks if they are in range of the grid, and returns if they are.
+ * 
+ * @param position query position.
+ * @return index of grid, if valid. Else -1.
+ */
 int ViewPointManager::GetViewPointInd(Eigen::Vector3d position)
 {
   Eigen::Vector3i sub = GetViewPointSub(position);
@@ -1065,6 +1088,12 @@ bool ViewPointManager::IsViewPointCandidate(int viewpoint_ind, bool use_array_in
   int array_ind = GetViewPointArrayInd(viewpoint_ind, use_array_ind);
   return viewpoints_[array_ind].IsCandidate();
 }
+/**
+ * Sets viewpoint candidate status.
+ * @param viewpoint_ind viewpoint.
+ * @param candidate status indicating candidature.
+ * @param use_array_ind
+ */
 void ViewPointManager::SetViewPointCandidate(int viewpoint_ind, bool candidate, bool use_array_ind)
 {
   int array_ind = GetViewPointArrayInd(viewpoint_ind, use_array_ind);
@@ -1160,16 +1189,40 @@ void ViewPointManager::ResetViewPointCoveredPointList(int viewpoint_ind, bool us
   viewpoints_[array_ind].ResetCoveredPointList();
   viewpoints_[array_ind].ResetCoveredFrontierPointList();
 }
+/**
+ * Adds input point to input viewpoint's list of covered points, effectively reclassifying 
+ * point from uncovered to covered.
+ * 
+ * @param viewpoint_ind index of query view point.
+ * @param point_ind index of point.
+ * @param use_array_ind viewpoint_ind is given in index or array index.
+ */
 void ViewPointManager::AddUncoveredPoint(int viewpoint_ind, int point_ind, bool use_array_ind)
 {
   int array_ind = GetViewPointArrayInd(viewpoint_ind, use_array_ind);
   viewpoints_[array_ind].AddCoveredPoint(point_ind);
 }
+/**
+ * Adds input frontier point to input viewpoint's list of covered points, effectively reclassifying 
+ * point from uncovered to covered.
+ * 
+ * @param viewpoint_ind index of query view point.
+ * @param point_ind index of frontier point.
+ * @param use_array_ind viewpoint_ind is given in index or array index.
+ */
 void ViewPointManager::AddUncoveredFrontierPoint(int viewpoint_ind, int point_ind, bool use_array_ind)
 {
   int array_ind = GetViewPointArrayInd(viewpoint_ind, use_array_ind);
   viewpoints_[array_ind].AddCoveredFrontierPoint(point_ind);
 }
+/**
+ * Gets the list of covered points of the viewpoint being queried within this function. 
+ * Covered points refer to points in viewpoints not yet visited that do provide coverage.
+ * 
+ * @param viewpoint_ind index of query view point.
+ * @param use_array_ind viewpoint_ind is given in index or array index.
+ * @return covered point list of viewpoint being queried.
+ */
 const std::vector<int>& ViewPointManager::GetViewPointCoveredPointList(int viewpoint_ind, bool use_array_ind) const
 {
   int array_ind = GetViewPointArrayInd(viewpoint_ind, use_array_ind);
@@ -1181,7 +1234,12 @@ const std::vector<int>& ViewPointManager::GetViewPointCoveredFrontierPointList(i
   int array_ind = GetViewPointArrayInd(viewpoint_ind, use_array_ind);
   return viewpoints_[array_ind].GetCoveredFrontierPointList();
 }
-
+/**
+ * Getter for getting viewpoint's list of covered points.
+ * 
+ * @param viewpoint_ind input viewpoint
+ * @param use_array_ind viewpoint_ind is given in index or array index.
+ */
 int ViewPointManager::GetViewPointCoveredPointNum(int viewpoint_ind, bool use_array_ind)
 {
   int array_ind = GetViewPointArrayInd(viewpoint_ind, use_array_ind);
@@ -1194,6 +1252,16 @@ int ViewPointManager::GetViewPointCoveredFrontierPointNum(int viewpoint_ind, boo
   return viewpoints_[array_ind].GetCoveredFrontierPointNum();
 }
 
+/**
+ * Iterates through a list of points that the input viewpoint covers, and increments a counter of 
+ * covered points if the point hasn't been covered in the input point list. Returns total number of
+ * covered points.
+ * 
+ * @param point_list
+ * @param viewpoint_index
+ * @param use_array_ind
+ * @return The number of covered points.
+ */
 int ViewPointManager::GetViewPointCoveredPointNum(const std::vector<bool>& point_list, int viewpoint_index,
                                                   bool use_array_ind)
 {
@@ -1208,6 +1276,16 @@ int ViewPointManager::GetViewPointCoveredPointNum(const std::vector<bool>& point
   }
   return covered_point_num;
 }
+/**
+ * Iterates through a list of points that the input viewpoint covers, and increments a counter of 
+ * covered points if the frontier point hasn't been covered in the frontier point list. Returns total number of
+ * covered points.
+ * 
+ * @param point_list
+ * @param viewpoint_index
+ * @param use_array_ind
+ * @return The number of covered points.
+ */
 int ViewPointManager::GetViewPointCoveredFrontierPointNum(const std::vector<bool>& frontier_point_list,
                                                           int viewpoint_index, bool use_array_ind)
 {
@@ -1243,16 +1321,21 @@ void ViewPointManager::UpdateViewPointCoveredFrontierPoint(std::vector<bool>& fr
 }
 
 /**
- * Check if each viewpoint candidate is in collision. Maintains a candidate cloud and a in_collision cloud. Construct a graph of the candidates.
+ * Updates view point candidates into the viewpoint candidate cloud or the viewpoint collision cloud. 
+ * Generates KD Trees for both clouds, and creates a graph out of the new candidate viewpoints.
+ * 
+ * @return number of new viewpoint candidates.
  */
 int ViewPointManager::GetViewPointCandidate()
 {
   viewpoint_candidate_cloud_->clear();
   viewpoint_in_collision_cloud_->clear();
   candidate_indices_.clear();
+  // Populates viewpoint_candidate_cloud_ and viewpoint_in_collision_cloud_ depending on viewpoint status.
   for (int i = 0; i < vp_.kViewPointNumber; i++)
   {
     SetViewPointCandidate(i, false);
+    // Point meets ideal viewpoint conditions, populate viewpoint_candidate_cloud_.
     if (!ViewPointInCollision(i) && ViewPointInLineOfSight(i) && ViewPointConnected(i))
     {
       SetViewPointCandidate(i, true);
@@ -1264,6 +1347,8 @@ int ViewPointManager::GetViewPointCandidate()
       point.z = viewpoint_position.z;
       viewpoint_candidate_cloud_->points.push_back(point);
     }
+    // Point is in collision, populate viewpoint_candidate_cloud_.
+    // TODO: else if to reduce unnecessary check.
     if (ViewPointInCollision(i))
     {
       geometry_msgs::Point viewpoint_position = GetViewPointPosition(i);
@@ -1292,6 +1377,13 @@ int ViewPointManager::GetViewPointCandidate()
   return candidate_indices_.size();
 }
 
+/**
+ * Uses A* Search to get the shortest path from starting viewpoint to target viewpoint.
+ * 
+ * @param start_viewpoint_ind index of starting viewpoint.
+ * @param target_viewpoint_ind index of ending viewpoint.
+ * @return path with poses of view point positions from start to target.
+ */
 nav_msgs::Path ViewPointManager::GetViewPointShortestPath(int start_viewpoint_ind, int target_viewpoint_ind)
 {
   nav_msgs::Path path;
@@ -1392,6 +1484,11 @@ bool ViewPointManager::GetViewPointShortestPathWithMaxLength(const Eigen::Vector
   return found_path;
 }
 
+/**
+ * For all viewpoint candidates, update viewpoint in exploring cell status.
+ * 
+ * @param grid_world
+ */
 void ViewPointManager::UpdateCandidateViewPointCellStatus(std::unique_ptr<grid_world_ns::GridWorld> const& grid_world)
 {
   for (const auto& ind : candidate_indices_)
@@ -1416,6 +1513,13 @@ void ViewPointManager::UpdateCandidateViewPointCellStatus(std::unique_ptr<grid_w
   }
 }
 
+/**
+ * Constructs a candidate view point graph, while simultaneously updating distances and positions.
+ * 
+ * @param[out] graph candidate viewpoint graph.
+ * @param[out] dist candidate viewpoints' distances from neighboring candidates.
+ * @param[out] positions candidate viewpoints' positions.
+ */
 void ViewPointManager::GetCandidateViewPointGraph(std::vector<std::vector<int>>& graph,
                                                   std::vector<std::vector<double>>& dist,
                                                   std::vector<geometry_msgs::Point>& positions)
@@ -1454,6 +1558,14 @@ void ViewPointManager::GetCandidateViewPointGraph(std::vector<std::vector<int>>&
   }
 }
 
+/**
+ * Finds closest index to position. If index is a viewpoint candidate, return it. 
+ * If not, iterate through eligible candidate viewpoints and return the closest candidate. 
+ * If all fails, return -1.
+ * 
+ * @param position query position.
+ * @return closest viewpoint candidate to query position.
+ */
 int ViewPointManager::GetNearestCandidateViewPointInd(const Eigen::Vector3d& position)
 {
   int viewpoint_ind = GetViewPointInd(position);

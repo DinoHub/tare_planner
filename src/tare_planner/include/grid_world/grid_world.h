@@ -35,10 +35,17 @@ class ViewPointManager;
 
 namespace grid_world_ns
 {
+/**
+ * Contains status of cell, including unseen, exploring, covered, 
+ * covered by others, and nogo
+ */
 enum class CellStatus
 {
+  // Unexplored; subspace does not contain any covered or uncovered surfaces.
   UNSEEN = 0,
+  // Subspace contains any number of uncovered surfaces.
   EXPLORING = 1,
+  // Explored; subspace contains only covered surfaces.
   COVERED = 2,
   COVERED_BY_OTHERS = 3,
   NOGO = 4
@@ -84,6 +91,9 @@ public:
   {
     status_ = status;
   }
+  /**
+   * Get indices of viewpoints within this cell
+   */
   std::vector<int> GetViewPointIndices()
   {
     return viewpoint_indices_;
@@ -96,31 +106,56 @@ public:
   {
     return keypose_graph_node_indices_;
   }
+  /**
+   * Get center of cell
+   */
   geometry_msgs::Point GetPosition()
   {
     return center_;
   }
+  /**
+   * Set center of cell
+   * @param position center of cell
+   */
   void SetPosition(const geometry_msgs::Point& position)
   {
     center_ = position;
   }
+  /**
+   * Get position of robot where cell state is first turned EXPLORING.
+   */
+  geometry_msgs::Point GetRobotPosition()
+  {
+    return robot_position_;
+  }
+  /**
+   * Set position of robot where cell state is first turned EXPLORING.
+   * @param robot_position
+   */
   void SetRobotPosition(const geometry_msgs::Point& robot_position)
   {
     robot_position_ = robot_position;
     robot_position_set_ = true;
   }
+  /**
+   * Set ID of keypose where viewpoints of this cell may be observed.
+   * @param keypose_id
+   */
   void SetKeyposeID(int keypose_id)
   {
     keypose_id_ = keypose_id;
     robot_position_set_ = true;
   }
+  /**
+   * Get ID of keypose where viewpoints of this cell may be observed.
+   */
+  int GetKeyposeID()
+  {
+    return keypose_id_;
+  }
   bool IsRobotPositionSet()
   {
     return robot_position_set_;
-  }
-  geometry_msgs::Point GetRobotPosition()
-  {
-    return robot_position_;
   }
   void AddVisitCount()
   {
@@ -131,30 +166,46 @@ public:
     return visit_count_;
   }
   void Reset();
-  int GetKeyposeID()
-  {
-    return keypose_id_;
-  }
+  /**
+   * Set position of highest scoring viewpoint
+   * @param position
+   */
   void SetViewPointPosition(const Eigen::Vector3d& position)
   {
     viewpoint_position_ = position;
   }
+  /**
+   * Get position of highest scoring viewpoint.
+   */
   Eigen::Vector3d GetViewPointPosition()
   {
     return viewpoint_position_;
   }
-  void SetRoadmapConnectionPoint(const Eigen::Vector3d& roadmap_connection_point)
-  {
-    roadmap_connection_point_ = roadmap_connection_point;
-  }
+  /**
+   * Get position for connecting cell to global roadmap.
+   */
   Eigen::Vector3d GetRoadmapConnectionPoint()
   {
     return roadmap_connection_point_;
   }
+  /**
+   * Set position for connecting cell to global roadmap.
+   * @param roadmap_connection_point
+   */
+  void SetRoadmapConnectionPoint(const Eigen::Vector3d& roadmap_connection_point)
+  {
+    roadmap_connection_point_ = roadmap_connection_point;
+  }
+  /**
+   * Get path to the nearest keypose on graph.
+   */
   nav_msgs::Path GetPathToKeyposeGraph()
   {
     return path_to_keypose_graph_;
   }
+  /**
+   * Set path to the nearest keypose on graph.
+   */
   void SetPathToKeyposeGraph(const nav_msgs::Path& path)
   {
     path_to_keypose_graph_ = path;
@@ -198,7 +249,7 @@ private:
   int keypose_id_;
   // Position of the highest score viewpoint
   Eigen::Vector3d viewpoint_position_;
-  // Position for connecting the cell to the global roadmap
+  // Position (closest candidate viewpoint) for connecting the cell to the global roadmap
   Eigen::Vector3d roadmap_connection_point_;
   // Path to the nearest keypose on the keypose graph
   nav_msgs::Path path_to_keypose_graph_;

@@ -267,18 +267,32 @@ void SensorCoveragePlanner3D::StateEstimationCallback(const nav_msgs::Odometry::
   initialized_ = true;
 }
 
+/**
+ * Callback function for storing registered point clouds and creating keypose nodes. 
+ * 
+ * Appends all new registered scans to registered scan stack. Downsizes the incoming registered scan message 
+ * and copies into registered cloud. Updates robot positions and registered clouds within planning environment. 
+ * 
+ * Every five registered clouds, initialize a keypose node based on current robot position, 
+ * downsize and copy registered scan stack cloud into keypose cloud, reset registered scan stack cloud, 
+ * and update keypose cloud update status to true.
+ * 
+ * @param registered_scan_msg incoming registered point cloud message for processing.
+ */
 void SensorCoveragePlanner3D::RegisteredScanCallback(const sensor_msgs::PointCloud2ConstPtr& registered_scan_msg)
 {
   if (!initialized_)
   {
     return;
   }
+  // Converts incoming registered_scan_msg into pcl format point cloud.
   pcl::PointCloud<pcl::PointXYZ>::Ptr registered_scan_tmp(new pcl::PointCloud<pcl::PointXYZ>());
   pcl::fromROSMsg(*registered_scan_msg, *registered_scan_tmp);
   if (registered_scan_tmp->points.empty())
   {
     return;
   }
+  // Adds incoming pointcloud into registered_scan_stack_.
   *(pd_.registered_scan_stack_->cloud_) += *(registered_scan_tmp);
   pointcloud_downsizer_.Downsize(registered_scan_tmp, pp_.kKeyposeCloudDwzFilterLeafSize,
                                  pp_.kKeyposeCloudDwzFilterLeafSize, pp_.kKeyposeCloudDwzFilterLeafSize);
@@ -288,6 +302,7 @@ void SensorCoveragePlanner3D::RegisteredScanCallback(const sensor_msgs::PointClo
   pd_.planning_env_->UpdateRobotPosition(pd_.robot_position_);
   pd_.planning_env_->UpdateRegisteredCloud<pcl::PointXYZI>(pd_.registered_cloud_->cloud_);
 
+  // Create a keypose node every five registered pointclouds.
   registered_cloud_count_ = (registered_cloud_count_ + 1) % 5;
   if (registered_cloud_count_ == 0)
   {
@@ -299,6 +314,7 @@ void SensorCoveragePlanner3D::RegisteredScanCallback(const sensor_msgs::PointClo
     pointcloud_downsizer_.Downsize(pd_.registered_scan_stack_->cloud_, pp_.kKeyposeCloudDwzFilterLeafSize,
                                    pp_.kKeyposeCloudDwzFilterLeafSize, pp_.kKeyposeCloudDwzFilterLeafSize);
 
+    // Clear keypose cloud every 5 registered scans, and copy whatever is on stack to keypose cloud.
     pd_.keypose_cloud_->cloud_->clear();
     pcl::copyPointCloud(*(pd_.registered_scan_stack_->cloud_), *(pd_.keypose_cloud_->cloud_));
     // pd_.keypose_cloud_->Publish();
@@ -407,6 +423,12 @@ void SensorCoveragePlanner3D::NogoBoundaryCallback(const geometry_msgs::PolygonS
   pd_.nogo_boundary_marker_->Publish();
 }
 
+/**
+ * Creates a simple waypoint that +12m in the x direction. 
+ * 
+ * This function is used when the TARE planner hasn't been initialized at the start. It publishes a 
+ * waypoint hardcoded to be +12m in the x direction.
+ */
 void SensorCoveragePlanner3D::SendInitialWaypoint()
 {
   // send waypoint ahead
@@ -552,10 +574,19 @@ void SensorCoveragePlanner3D::UpdateVisitedPositions()
   }
 }
 
+/**
+ * Updates robot position within local coverage planner and viewpoint manager. If neighbor cells 
+ * have changed (rollover), update neighbor cells as well. Update robot position within planning environment,
+ * and publish new visualization point cloud.
+ * 
+ * Updates keypose cloud within planning environment.
+ * 
+ */
 void SensorCoveragePlanner3D::UpdateGlobalRepresentation()
 {
   pd_.local_coverage_planner_->SetRobotPosition(
       Eigen::Vector3d(pd_.robot_position_.x, pd_.robot_position_.y, pd_.robot_position_.z));
+  // viewpoint rollover indicates new viewpoints from previous iteration.
   bool viewpoint_rollover = pd_.viewpoint_manager_->UpdateRobotPosition(
       Eigen::Vector3d(pd_.robot_position_.x, pd_.robot_position_.y, pd_.robot_position_.z));
   if (!pd_.grid_world_->Initialized() || viewpoint_rollover)
@@ -1208,7 +1239,14 @@ void SensorCoveragePlanner3D::PrintExplorationStatus(std::string status, bool cl
 }
 
 /**
- * If robot is doing a large direction change, increase a counter. Else, reset the counter. If counter above threshold, activate momentum. Updates pd_.last_robot_pos_. Publishes the number of times 'momentum' was activated.
+ * Counts the number of direction changes and momentum activations since advent of TARE planner. These are used 
+ * as guiding metrics, and are not part of logic. Updates pd_.last_robot_pos_. 
+ * 
+ * Checks for direction change by considering movements with substantial magnitude that has negative 
+ * dot product. If no direction change, resets direction change counter and increments direction no change counter. 
+ * 
+ * Also activates momemtum and increments momentum activation counter if direction change counter exceeds a threshold. 
+ * Consecutive direction changes will not increment momentum activation counts.
  */
 void SensorCoveragePlanner3D::CountDirectionChange()
 {
@@ -1250,7 +1288,10 @@ void SensorCoveragePlanner3D::CountDirectionChange()
 }
 
 /**
- * Callback every second. Defined in constructor
+ * Contains main logic of TARE planner. Executes every second.
+ * 
+ * 
+ * 
  */
 void SensorCoveragePlanner3D::execute(const ros::TimerEvent&)
 {

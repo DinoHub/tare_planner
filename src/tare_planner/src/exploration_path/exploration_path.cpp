@@ -47,6 +47,7 @@ bool operator!=(const Node& n1, const Node& n2)
   return !(n1 == n2);
 }
 
+// Get length of exploration path in meters.
 double ExplorationPath::GetLength() const
 {
   double length = 0.0;
@@ -61,6 +62,7 @@ double ExplorationPath::GetLength() const
   return length;
 }
 
+// Adds single node from input into exploration path.
 void ExplorationPath::Append(const Node& node)
 {
   if (nodes_.empty() || nodes_.back() != node)
@@ -69,6 +71,7 @@ void ExplorationPath::Append(const Node& node)
   }
 }
 
+// Adds nodes in input path into exploration path.
 void ExplorationPath::Append(const ExplorationPath& path)
 {
   for (int i = 0; i < path.nodes_.size(); i++)
@@ -77,11 +80,17 @@ void ExplorationPath::Append(const ExplorationPath& path)
   }
 }
 
+// Reverses nodes within exploration path.
 void ExplorationPath::Reverse()
 {
   std::reverse(nodes_.begin(), nodes_.end());
 }
 
+/**
+ * Converts nodes within exploration path into ROS message.
+ * 
+ * @return exploration path nodes wrapped in ROS message.
+ */
 nav_msgs::Path ExplorationPath::GetPath() const
 {
   nav_msgs::Path path;
@@ -96,6 +105,11 @@ nav_msgs::Path ExplorationPath::GetPath() const
   }
   return path;
 }
+/**
+ * Updates exploration path nodes struct with input path.
+ * 
+ * @param path Path used to update exploration path.
+ */
 void ExplorationPath::FromPath(const nav_msgs::Path& path)
 {
   nodes_.clear();
@@ -110,6 +124,11 @@ void ExplorationPath::FromPath(const nav_msgs::Path& path)
   }
 }
 
+/**
+ * Generate visualization cloud from exploration path nodes.
+ * 
+ * @param[out] vis_cloud visualization cloud updated with exploration path nodes.
+ */
 void ExplorationPath::GetVisualizationCloud(pcl::PointCloud<pcl::PointXYZI>::Ptr vis_cloud) const
 {
   vis_cloud->clear();
@@ -124,6 +143,12 @@ void ExplorationPath::GetVisualizationCloud(pcl::PointCloud<pcl::PointXYZI>::Ptr
   }
 }
 
+/**
+ * Generates visualization cloud from nodes that are ROBOT, LOOKAHEAD_POINT, LOCAL_VIEWPOINT,
+ * LOCAL_PATH_START, LOCAL_PATH_END or GLOBAL_VIEWPOINT.
+ * 
+ * @param[out] vis_cloud keypoint cloud updated with relevant exploration path nodes.
+ */
 void ExplorationPath::GetKeyPointCloud(pcl::PointCloud<pcl::PointXYZI>::Ptr vis_cloud) const
 {
   vis_cloud->clear();
@@ -146,6 +171,11 @@ void ExplorationPath::GetKeyPointCloud(pcl::PointCloud<pcl::PointXYZI>::Ptr vis_
   }
 }
 
+/**
+ * Return positions of all nodes within the exploration path.
+ * 
+ * @param[out] positions vector containing positions of all nodes in exploration path.
+ */
 void ExplorationPath::GetNodePositions(std::vector<Eigen::Vector3d>& positions) const
 {
   positions.clear();
@@ -155,6 +185,9 @@ void ExplorationPath::GetNodePositions(std::vector<Eigen::Vector3d>& positions) 
   }
 }
 
+/**
+ * Clears all nodes within exploration path.
+ */
 void ExplorationPath::Reset()
 {
   nodes_.clear();

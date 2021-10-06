@@ -90,6 +90,9 @@ public:
   {
     parameters_.kUseFrontier = use_frontier;
   }
+  /**
+   * //TODO: check out the rolling grid / rolling occupancy grid representations to understand.
+   */
   void UpdateRobotPosition(geometry_msgs::Point robot_position)
   {
     bool pointcloud_manager_rolling = pointcloud_manager_->UpdateRobotPosition(robot_position);
@@ -145,6 +148,10 @@ public:
     }
   }
 
+  /**
+   * Updates keypose cloud locally within the planning environment. Trims coverage cloud to be within boundary.
+   * Extracts vertical surfaces and populates vertical surface cloud. Updates pointcloud manager. 
+   */
   template <class PCLPointType>
   void UpdateKeyposeCloud(typename pcl::PointCloud<PCLPointType>::Ptr& keypose_cloud)
   {
@@ -243,6 +250,11 @@ public:
     coverage_boundary_ = polygon;
   }
 
+  /**
+   * Keeps only points that are within the coverage boundary.
+   * 
+   * @param cloud cloud to be filtered within coverage boundary.
+   */
   template <class PCLPointType>
   void GetCoverageCloudWithinBoundary(typename pcl::PointCloud<PCLPointType>::Ptr& cloud)
   {
@@ -316,11 +328,13 @@ private:
   Eigen::Vector3d prev_robot_position_;
   bool robot_position_update_;
   std::unique_ptr<pointcloud_utils_ns::PCLCloud<PlannerCloudPointType>> keypose_cloud_;
+  // Collision cloud
   std::unique_ptr<pointcloud_utils_ns::PCLCloud<PlannerCloudPointType>> stacked_cloud_;
   std::unique_ptr<pointcloud_utils_ns::PCLCloud<PlannerCloudPointType>> stacked_vertical_surface_cloud_;
   pcl::KdTreeFLANN<PlannerCloudPointType>::Ptr stacked_vertical_surface_cloud_kdtree_;
   pointcloud_utils_ns::PointCloudDownsizer<PlannerCloudPointType> stacked_cloud_downsizer_;
   pointcloud_utils_ns::PointCloudDownsizer<pcl::PointXYZI> collision_cloud_downsizer_;
+  // Point cloud that contains vertical surfaces that are within z range and contain sufficient neighbors.
   std::unique_ptr<pointcloud_utils_ns::PCLCloud<PlannerCloudPointType>> vertical_surface_cloud_;
   pointcloud_utils_ns::VerticalSurfaceExtractor vertical_surface_extractor_;
   pointcloud_utils_ns::VerticalSurfaceExtractor vertical_frontier_extractor_;
@@ -331,6 +345,7 @@ private:
 
   geometry_msgs::Polygon coverage_boundary_;
 
+  // Overall point cloud used in planning.
   std::unique_ptr<pointcloud_utils_ns::PCLCloud<PlannerCloudPointType>> planner_cloud_;
   std::unique_ptr<pointcloud_manager_ns::PointCloudManager> pointcloud_manager_;
   std::unique_ptr<rolling_occupancy_grid_ns::RollingOccupancyGrid> rolling_occupancy_grid_;
@@ -343,10 +358,14 @@ private:
   std::unique_ptr<pointcloud_utils_ns::PCLCloud<pcl::PointXYZI>> rolled_out_occupancy_cloud_;
   std::unique_ptr<pointcloud_utils_ns::PCLCloud<pcl::PointXYZI>> pointcloud_manager_occupancy_cloud_;
 
+  // Point cloud that has been dilated vertically.
   std::unique_ptr<pointcloud_utils_ns::PCLCloud<PlannerCloudPointType>> squeezed_planner_cloud_;
+  // KdTree of dilated point cloud.
   pcl::KdTreeFLANN<PlannerCloudPointType>::Ptr squeezed_planner_cloud_kdtree_;
 
+  // Clouds containing points covered by unvisited viewpoints.
   std::unique_ptr<pointcloud_utils_ns::PCLCloud<pcl::PointXYZI>> uncovered_cloud_;
+  // Clouds containing frontier points covered by unvisited viewpoints.
   std::unique_ptr<pointcloud_utils_ns::PCLCloud<pcl::PointXYZI>> uncovered_frontier_cloud_;
   std::unique_ptr<pointcloud_utils_ns::PCLCloud<pcl::PointXYZI>> frontier_cloud_;
   std::unique_ptr<pointcloud_utils_ns::PCLCloud<pcl::PointXYZI>> filtered_frontier_cloud_;

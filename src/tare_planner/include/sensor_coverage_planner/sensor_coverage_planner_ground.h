@@ -109,8 +109,11 @@ struct PlannerParameters
 struct PlannerData
 {
   // PCL clouds TODO: keypose cloud does not need to be PlannerCloudPointType
+  // Shows five registered scans leading up to current keypose node creation.
   std::unique_ptr<pointcloud_utils_ns::PCLCloud<PlannerCloudPointType>> keypose_cloud_;
+  // Holds incoming registered scans and copies into keypose_cloud_ each time a keypose node is inserted. 
   std::unique_ptr<pointcloud_utils_ns::PCLCloud<pcl::PointXYZ>> registered_scan_stack_;
+  // Holds the most recent registered scan point cloud.
   std::unique_ptr<pointcloud_utils_ns::PCLCloud<pcl::PointXYZI>> registered_cloud_;
   std::unique_ptr<pointcloud_utils_ns::PCLCloud<pcl::PointXYZI>> large_terrain_cloud_;
   std::unique_ptr<pointcloud_utils_ns::PCLCloud<pcl::PointXYZI>> terrain_collision_cloud_;
@@ -165,6 +168,7 @@ public:
   ~SensorCoveragePlanner3D() = default;
 
 private:
+  // If the keypose cloud has been updated. Usual metric is every 5 registered point cloud scans.
   bool keypose_cloud_update_;
   bool initialized_;
   bool lookahead_point_update_;
