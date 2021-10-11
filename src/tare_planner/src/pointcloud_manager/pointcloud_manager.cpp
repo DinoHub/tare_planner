@@ -13,6 +13,10 @@
 
 namespace pointcloud_manager_ns
 {
+/**
+ * Default constructor for the point cloud manager that initializes robot position, origin (bottom left of grid), 
+ * indexes, a point cloud grid and an occupancy cloud grid, both containing a point cloud at each cell.
+ */
 PointCloudManager::PointCloudManager(int row_num, int col_num, int level_num, int max_cell_point_num, double cell_size,
                                      double cell_height, int neighbor_cell_num)
   : kRowNum(row_num)
@@ -64,7 +68,7 @@ PointCloudManager::PointCloudManager(int row_num, int col_num, int level_num, in
 }
 
 /**
- * Based on current robot position, set origin in point cloud grid and occupancy cloud grid.
+ * Based on current robot position, update origin in point cloud grid and occupancy cloud grid.
  */
 void PointCloudManager::UpdateOrigin()
 {
@@ -139,6 +143,11 @@ bool PointCloudManager::UpdateRobotPosition(const geometry_msgs::Point& robot_po
   return rolling;
 }
 
+/**
+ * Collects neighbors from pointcloud grid into output point cloud.
+ * 
+ * @param[out] cloud_out output point cloud.
+ */
 void PointCloudManager::GetPointCloud(PCLCloudType& cloud_out)
 {
   cloud_out.clear();
@@ -148,6 +157,9 @@ void PointCloudManager::GetPointCloud(PCLCloudType& cloud_out)
   }
 }
 
+/**
+ * Remove neighbors from occupancy cloud grid.
+ */
 void PointCloudManager::ClearNeighborCellOccupancyCloud()
 {
   for (const auto& neighbor_ind : neighbor_indices_)
@@ -156,7 +168,14 @@ void PointCloudManager::ClearNeighborCellOccupancyCloud()
   }
 }
 
-
+/**
+ * Rolled in occupancy cloud refers to the occupancy cloud that has been "rolled into" the current grid.
+ * 
+ * Resets rolled in cloud, gets indices of new neighbors, queries the occupancy cloud grid for the new neighbors, and 
+ * adds them to the rolled in occupancy cloud.  
+ * 
+ * @return pointer to rolled in occupancy cloud, which contains occupancy cloud cells of new neighbors.
+ */
 pcl::PointCloud<pcl::PointXYZI>::Ptr PointCloudManager::GetRolledInOccupancyCloud()
 {
   rolled_in_occupancy_cloud_->clear();
@@ -167,6 +186,12 @@ pcl::PointCloud<pcl::PointXYZI>::Ptr PointCloudManager::GetRolledInOccupancyClou
   return rolled_in_occupancy_cloud_;
 }
 
+/**
+ * Clear occupancy cloud, iterate through occupancy cloud grid, and add each cell of occupancy cloud grid into the 
+ * occupancy cloud argument.
+ * 
+ * @param[out] occupancy_cloud cloud to populate with current occupancy cloud grids.
+ */
 void PointCloudManager::GetOccupancyCloud(pcl::PointCloud<pcl::PointXYZI>::Ptr& occupancy_cloud)
 {
   occupancy_cloud->clear();
@@ -177,6 +202,12 @@ void PointCloudManager::GetOccupancyCloud(pcl::PointCloud<pcl::PointXYZI>::Ptr& 
   }
 }
 
+/**
+ * Iterates through all points in the incoming occupancy cloud, converts the point into an index, and pushes point back 
+ * into the corresponding occupancy cloud grid's cell.
+ * 
+ * @param occupancy_cloud incoming occupancy cloud.
+ */
 void PointCloudManager::StoreOccupancyCloud(const pcl::PointCloud<pcl::PointXYZI>::Ptr& occupancy_cloud)
 {
   for (const auto& point : occupancy_cloud->points)
@@ -191,6 +222,12 @@ void PointCloudManager::StoreOccupancyCloud(const pcl::PointCloud<pcl::PointXYZI
   }
 }
 
+/**
+ * Iterates through all cells, and pushes the center of each cell in red into the output marker.
+ * Populates all neighbor cells with green.
+ * 
+ * @param[out] marker output marker.
+ */
 void PointCloudManager::GetMarker(visualization_msgs::Marker& marker)
 {
   marker.points.clear();
@@ -227,6 +264,11 @@ void PointCloudManager::GetMarker(visualization_msgs::Marker& marker)
   }
 }
 
+/**
+ * Gets all neighbors and push their positions, with intensity set to index value, into the visualization cloud.
+ * 
+ * @param[out] vis_cloud output visualization cloud.
+ */
 void PointCloudManager::GetVisualizationPointCloud(pcl::PointCloud<pcl::PointXYZI>::Ptr vis_cloud)
 {
   vis_cloud->clear();
@@ -242,6 +284,15 @@ void PointCloudManager::GetVisualizationPointCloud(pcl::PointCloud<pcl::PointXYZ
   }
 }
 
+/**
+ * Iterates through neighbor indices, and updates total number of points. If index is less than  the number of points, 
+ * update cloud index to current neighbor index, and cloud point index to the query index - number of points within the 
+ * current neighbor index cell.
+ * 
+ * @param index query index.
+ * @param[out] cloud_index
+ * @param[out] cloud_point_index
+ */
 void PointCloudManager::GetCloudPointIndex(int index, int& cloud_index, int& cloud_point_index)
 {
   cloud_index = -1;
@@ -260,6 +311,7 @@ void PointCloudManager::GetCloudPointIndex(int index, int& cloud_index, int& clo
       break;
     }
   }
+  // TODO: seems like debugging, remove?
   if (index > point_num || cloud_index == -1 || cloud_point_index == -1)
   {
     std::cout << "index: " << index << " point num: " << point_num << std::endl;
@@ -270,6 +322,11 @@ void PointCloudManager::GetCloudPointIndex(int index, int& cloud_index, int& clo
     }
   }
 }
+/**
+ * Counts the number of points within the pointcloud grid.
+ * 
+ * @return number of points within pointcloud grid.
+ */
 int PointCloudManager::GetAllPointNum()
 {
   int num = 0;
