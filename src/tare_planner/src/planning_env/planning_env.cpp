@@ -14,6 +14,11 @@
 
 namespace planning_env_ns
 {
+/**
+ * Reads parameters from ROS parameter server.
+ * 
+ * @param nh main ROS node's handle.
+ */
 void PlanningEnvParameters::ReadParameters(ros::NodeHandle& nh)
 {
   kSurfaceCloudDwzLeafSize = misc_utils_ns::getParam<double>(nh, "kSurfaceCloudDwzLeafSize", 0.2);
@@ -51,6 +56,10 @@ void PlanningEnvParameters::ReadParameters(ros::NodeHandle& nh)
   kExtractFrontierRange.z() = 2;
 }
 
+/**
+ * Initializes cloud stacks and point clouds. Sets up pointcloud manager, rolling grid, and necessary surface and 
+ * frontier extractors.
+ */
 PlanningEnv::PlanningEnv(ros::NodeHandle nh, ros::NodeHandle nh_private, std::string world_frame_id)
   : keypose_cloud_count_(0)
   , vertical_surface_extractor_()
@@ -155,6 +164,10 @@ PlanningEnv::PlanningEnv(ros::NodeHandle nh, ros::NodeHandle nh_private, std::st
   vertical_frontier_extractor_.SetNeighborThreshold(2);
 }
 
+/**
+ * Updates collision cloud by resetting the collision cloud, adding all vertical surface clouds within the vertical 
+ * surface cloud stack into the collision cloud, then downsizing it.
+ */
 void PlanningEnv::UpdateCollisionCloud()
 {
   collision_cloud_->clear();
@@ -168,19 +181,29 @@ void PlanningEnv::UpdateCollisionCloud()
                                       parameters_.kCollisionCloudDwzLeafSize, parameters_.kCollisionCloudDwzLeafSize);
 }
 
+/**
+ * Publishes a filtered frontier cloud.
+ * 
+ * Gets frontier cloud using the occupancy grid. Limits cloud to within coverage boundary, and extracts vertical 
+ * surfaces into the filtered frontier cloud. Clusters the frontiers, and extracts relevant indices if number of 
+ * clusters exceed a threshold.
+ */
 void PlanningEnv::UpdateFrontiers()
 {
   if (parameters_.kUseFrontier)
   {
     prev_robot_position_ = robot_position_;
+    // Populates frontier cloud using the occupancy grid.
     rolling_occupancy_grid_->GetFrontier(frontier_cloud_->cloud_, robot_position_, parameters_.kExtractFrontierRange);
 
     if (!frontier_cloud_->cloud_->points.empty())
     {
       if (parameters_.kUseCoverageBoundaryOnFrontier)
       {
+        // Ensures cloud is within coverage boundary.
         GetCoverageCloudWithinBoundary<pcl::PointXYZI>(frontier_cloud_->cloud_);
       }
+      // Extracts vertical surfaces into filtered frontier cloud.
       vertical_frontier_extractor_.ExtractVerticalSurface<pcl::PointXYZI, pcl::PointXYZI>(
           frontier_cloud_->cloud_, filtered_frontier_cloud_->cloud_);
     }
@@ -191,6 +214,7 @@ void PlanningEnv::UpdateFrontiers()
       kdtree_frontier_cloud_->setInputCloud(filtered_frontier_cloud_->cloud_);
       std::vector<pcl::PointIndices> cluster_indices;
       pcl::EuclideanClusterExtraction<pcl::PointXYZI> ec;
+      // Using EuclideanClusterExtraction to extract indices into cluster_indices.
       ec.setClusterTolerance(parameters_.kFrontierClusterTolerance);
       ec.setMinClusterSize(1);
       ec.setMaxClusterSize(10000);
@@ -200,6 +224,7 @@ void PlanningEnv::UpdateFrontiers()
 
       pcl::PointIndices::Ptr inliers(new pcl::PointIndices());
       int cluster_count = 0;
+      // For all cluster indices, if there number of frontier clusters exceed threshold, add into inliers.
       for (int i = 0; i < cluster_indices.size(); i++)
       {
         if (cluster_indices[i].indices.size() < parameters_.kFrontierClusterMinSize)
@@ -214,6 +239,7 @@ void PlanningEnv::UpdateFrontiers()
         }
         cluster_count++;
       }
+      // Uses ExtractIndices to extract inlier indices from the filtered frontier cloud, then publishes.
       pcl::ExtractIndices<pcl::PointXYZI> extract;
       extract.setInputCloud(filtered_frontier_cloud_->cloud_);
       extract.setIndices(inliers);

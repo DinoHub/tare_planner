@@ -122,10 +122,10 @@ public:
   /**
    * Function looks for vertical surfaces within input cloud. 
    * 
-   * Moves input cloud into an extractor cloud, where z values have been moved to intensity (to prevent confusing KD-Tree). 
-   * Iterates through all points within the extractor cloud, and uses KD Tree does a radius search to grab neighbors near it. 
-   * Point is considered a vertical surface if its z value is within range, and it contains enough neighbors to constitute 
-   * as a surface. Populates cloud_out with points.
+   * Moves input cloud into an extractor cloud. Extractor cloud has Z-values have been moved to intensity. Iterates 
+   * through all points within the extractor cloud, and uses KD Tree to do a radius search to grab neighbors near it. 
+   * Point is considered a vertical surface if its z-value is within range, and it contains enough neighbors to 
+   * constitute as a surface. Populates cloud_out with points.
    * 
    * @tparam PCLPointType point type for input point cloud.
    * @tparam OutputPCLPointType point type for output point cloud.
