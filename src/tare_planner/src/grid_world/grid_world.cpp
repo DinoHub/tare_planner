@@ -155,6 +155,11 @@ GridWorld::GridWorld(int row_num, int col_num, int level_num, double cell_size, 
   return_home_ = false;
 }
 
+/**
+ * Reads parameters from ROS parameter server.
+ * 
+ * @param nh main ROS node's handle.
+ */
 void GridWorld::ReadParameters(ros::NodeHandle& nh)
 {
   kRowNum = misc_utils_ns::getParam<int>(nh, "kGridWorldXNum", 121);

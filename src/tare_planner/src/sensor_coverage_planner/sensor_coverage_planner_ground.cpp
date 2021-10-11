@@ -513,7 +513,9 @@ void SensorCoveragePlanner3D::UpdateViewPointCoverage()
   UpdateRobotViewPointCoverage();
   update_coverage_timer.Stop(false);
 }
-
+/**
+ * Updates the LiDAR model's coverage based on the collision cloud as long as points are in FOV and in range.
+ */
 void SensorCoveragePlanner3D::UpdateRobotViewPointCoverage()
 {
   pcl::PointCloud<pcl::PointXYZI>::Ptr cloud = pd_.planning_env_->GetCollisionCloud();

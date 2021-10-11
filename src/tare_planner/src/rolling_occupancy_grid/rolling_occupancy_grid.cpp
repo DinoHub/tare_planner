@@ -45,6 +45,12 @@ RollingOccupancyGrid::RollingOccupancyGrid(ros::NodeHandle& nh) : initialized_(f
   occupancy_cloud_ = pcl::PointCloud<pcl::PointXYZI>::Ptr(new pcl::PointCloud<pcl::PointXYZI>);
 }
 
+/**
+ * Initializes origin for occupancy grid if origin has not been initialized yet. Also initializes origin of the 
+ * occupancy array.
+ * 
+ * @param origin origin to be set.
+ */
 void RollingOccupancyGrid::InitializeOrigin(const Eigen::Vector3d& origin)
 {
   if (!initialized_)
@@ -138,6 +144,14 @@ bool RollingOccupancyGrid::UpdateRobotPosition(const Eigen::Vector3d& robot_posi
   return true;
 }
 
+/**
+ * Sets cell state within the occupancy array of the rolling occupancy grid. 
+ * 
+ * Iterates through all points within the input cloud, and sets cell state to FREE in occupancy array if intensity is 
+ * less than 0.1. Sets cell state to occupied if the intensity is greater than 0.9.
+ * 
+ * @param cloud input cloud.
+ */
 void RollingOccupancyGrid::UpdateOccupancyStatus(const pcl::PointCloud<pcl::PointXYZI>::Ptr& cloud)
 {
   if (!initialized_)
