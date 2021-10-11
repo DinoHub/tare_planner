@@ -13,6 +13,10 @@
 
 namespace tare_visualizer_ns
 {
+/**
+ * Default constructor that sets up publishers for the tare marker and local path, keeps track of the global subspaces 
+ * marker and local planning horizon marker, and clouds for uncovered surfaces and viewpoints. Initializes markers.
+ */
 TAREVisualizer::TAREVisualizer(ros::NodeHandle& nh, ros::NodeHandle& nh_private)
 {
   ReadParameters(nh_private);
@@ -34,6 +38,12 @@ TAREVisualizer::TAREVisualizer(ros::NodeHandle& nh, ros::NodeHandle& nh_private)
 
   InitializeMarkers();
 }
+/**
+ * Reads parameters from ROS parameter server.
+ * 
+ * @param nh main ROS node's handle.
+ * @return success message for reading ROS parameters.
+ */
 bool TAREVisualizer::ReadParameters(ros::NodeHandle& nh)
 {
   kExploringSubspaceMarkerColorGradientAlpha =
@@ -66,6 +76,11 @@ bool TAREVisualizer::ReadParameters(ros::NodeHandle& nh)
   return true;
 }
 
+/**
+ * Initializes global subspaces marker to CUBE LIST. Sets scale and color according to configurable parameters. 
+ * Initializes local planning horizon marker to LINE LIST. Sets scale and color as well according to configurable 
+ * parameters.
+ */
 void TAREVisualizer::InitializeMarkers()
 {
   global_subspaces_marker_->SetType(visualization_msgs::Marker::CUBE_LIST);
@@ -77,6 +92,14 @@ void TAREVisualizer::InitializeMarkers()
   local_planning_horizon_marker_->SetColorRGBA(kExploringSubspaceMarkerColor);
 }
 
+/**
+ * Constructs the local planning horizon marker based on the input values, and updates it into the local planning 
+ * horizon marker member variable.
+ * 
+ * @param x input x value.
+ * @param y input y value.
+ * @param z input z value.
+ */
 void TAREVisualizer::GetLocalPlanningHorizonMarker(double x, double y, double z)
 {
   local_planning_horizon_origin_.x = x;
@@ -153,6 +176,11 @@ void TAREVisualizer::GetLocalPlanningHorizonMarker(double x, double y, double z)
   local_planning_horizon_marker_->marker_.points.push_back(upper_right2);
 }
 
+/**
+ * Constructs markers with the cneter of each global subspace. Markers could be initialized with a gradient if the 
+ * corresponding parameter is set.
+ * 
+ */
 void TAREVisualizer::GetGlobalSubspaceMarker(const std::unique_ptr<grid_world_ns::GridWorld>& grid_world,
                                              const std::vector<int>& ordered_cell_indices)
 {
@@ -184,6 +212,9 @@ void TAREVisualizer::GetGlobalSubspaceMarker(const std::unique_ptr<grid_world_ns
   }
 }
 
+/**
+ * Publishes markers.
+ */
 void TAREVisualizer::PublishMarkers()
 {
   local_planning_horizon_marker_->Publish();
