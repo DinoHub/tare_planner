@@ -42,6 +42,9 @@ public:
   {
     return grid0_->Sub2Ind(sub);
   }
+  /**
+   * Returns the updated grid's cell value at the input point
+   */
   int GetArrayInd(Eigen::Vector3i sub) const
   {
     MY_ASSERT(InRange(sub));
@@ -54,12 +57,20 @@ public:
       return grid0_->GetCellValue(sub);
     }
   }
+  /**
+   * Returns the updated grid's cell value at the input point.
+   * 
+   * TODO: convert sub2ind instead of ind2sub since GetCellValue() works in ind space. InRange works in either. which_grid_ check can be in ind space instead
+   */
   int GetArrayInd(int ind) const
   {
     MY_ASSERT(InRange(ind));
     Eigen::Vector3i sub = grid0_->Ind2Sub(ind);
     return GetArrayInd(sub);
   }
+  /**
+   * Returns the index of the rolling grid, where the input (array_ind) is at. 
+   */
   int GetInd(int array_ind) const
   {
     MY_ASSERT(InRange(array_ind));
@@ -78,7 +89,14 @@ private:
   std::vector<int> updated_indices_;
   std::vector<int> array_ind_to_ind_;
   bool which_grid_;
-
+  /**
+   * Given current index and no. of grids to shfit by, returns new index.
+   * 
+   * If index > roll, subtract directly. Else, wrap around by adding max_idx
+   * @param cur_idx Current grid index E.g. 35
+   * @param roll_step Number of grids to roll (shift) by E.g 31
+   * @param max_idx Grid size in this dimension E.g. 40
+   */
   inline int GetFromIdx(int cur_idx, int roll_step, int max_idx) const
   {
     return cur_idx <= roll_step - 1 ? max_idx - roll_step + cur_idx : cur_idx - roll_step;

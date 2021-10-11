@@ -89,7 +89,9 @@ public:
   {
     return InRange(Eigen::Vector3i(x, y, z));
   }
-
+  /**
+   * Checks if input point is within grid size/local planning horizon defined by kNumber
+   */
   bool InRange(const Eigen::Vector3i& sub) const
   {
     bool in_range = true;
@@ -99,7 +101,9 @@ public:
     }
     return in_range;
   }
-
+  /**
+   * Checks if input point is within grid size/local planning horizon defined by kNumber
+   */
   bool InRange(int ind) const
   {
     return ind >= 0 && ind < cell_number_;
@@ -167,7 +171,9 @@ public:
   {
     return GetCell(Eigen::Vector3i(x, y, z));
   }
-
+  /**
+   * Returns value of cell by reference. Changing this also changes the cell value.
+   */
   _T& GetCell(const Eigen::Vector3i& sub)
   {
     // MY_ASSERT(InRange(sub));
@@ -180,7 +186,9 @@ public:
     // MY_ASSERT(InRange(index));
     return cells_[index];
   }
-
+  /**
+   * Returns value of cell. Use GetCell() instead to get a reference.
+   */
   _T GetCellValue(int x, int y, int z) const
   {
     int index = Sub2Ind(x, y, z);

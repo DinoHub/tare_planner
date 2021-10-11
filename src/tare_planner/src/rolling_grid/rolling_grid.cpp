@@ -33,7 +33,9 @@ RollingGrid::RollingGrid(const Eigen::Vector3i& size) : size_(size), which_grid_
     }
   }
 }
-
+/**
+ * Updates the grid values after shifting. Get RolledInIndices(). Flips which_grid_. Then updates array_ind_to_ind_ using the updated grid
+ */
 void RollingGrid::Roll(const Eigen::Vector3i& roll_dir)
 {
   if (roll_dir.x() == 0 && roll_dir.y() == 0 && roll_dir.z() == 0)
@@ -42,7 +44,7 @@ void RollingGrid::Roll(const Eigen::Vector3i& roll_dir)
   }
   if (which_grid_)
   {
-    RollHelper(grid1_, grid0_, roll_dir);
+    RollHelper(grid1_, grid0_, roll_dir); //updates grid0_ 
   }
   else
   {
@@ -53,6 +55,7 @@ void RollingGrid::Roll(const Eigen::Vector3i& roll_dir)
   which_grid_ = !which_grid_;
 
   // Update array_ind to ind mapping
+  // TODO: might be better to calculate cell_num in the constructor since this is done more than once
   int cell_num = size_.x() * size_.y() * size_.z();
   for (int ind = 0; ind < cell_num; ind++)
   {
@@ -63,12 +66,15 @@ void RollingGrid::Roll(const Eigen::Vector3i& roll_dir)
     }
     else
     {
-      array_ind = grid0_->GetCellValue(ind);
+      array_ind = grid0_->GetCellValue(ind); //the updated grid
     }
     array_ind_to_ind_[array_ind] = ind;
   }
 }
-
+/** 
+ * Updates the second grid, referencing the values from the first grid.
+ * TODO: wrap around don't seem to make sense for edge values.
+ */
 void RollingGrid::RollHelper(const std::unique_ptr<grid_ns::Grid<int>>& grid_in,
                              const std::unique_ptr<grid_ns::Grid<int>>& grid_out, Eigen::Vector3i roll_dir)
 {
@@ -81,6 +87,7 @@ void RollingGrid::RollHelper(const std::unique_ptr<grid_ns::Grid<int>>& grid_in,
   roll_dir.y() %= size_.y();
   roll_dir.z() %= size_.z();
   Eigen::Vector3i dir;
+  // dir is the number of grids to shift by, always positive. Instead of using negative numbers to represent the other direction, they wrap around in GetFromIdx(). TODO: wrap around don't seem to make sense for edge values.
   dir.x() = roll_dir.x() >= 0 ? roll_dir.x() : size_.x() + roll_dir.x();
   dir.y() = roll_dir.y() >= 0 ? roll_dir.y() : size_.y() + roll_dir.y();
   dir.z() = roll_dir.z() >= 0 ? roll_dir.z() : size_.z() + roll_dir.z();
@@ -92,6 +99,7 @@ void RollingGrid::RollHelper(const std::unique_ptr<grid_ns::Grid<int>>& grid_in,
     int from_x = GetFromIdx(sub.x(), dir.x(), size_.x());
     int from_y = GetFromIdx(sub.y(), dir.y(), size_.y());
     int from_z = GetFromIdx(sub.z(), dir.z(), size_.z());
+    //grid_out[ind before shift] = grid_in[ind after shift]
     grid_out->GetCell(ind) = grid_in->GetCellValue(from_x, from_y, from_z);
   }
 }

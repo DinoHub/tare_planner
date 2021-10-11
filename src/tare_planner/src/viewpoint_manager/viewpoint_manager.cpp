@@ -259,7 +259,8 @@ void ViewPointManager::GetCollisionCorrespondence()
 }
 
 /**
- * Shifts origin_ (hence also local planning horizon) based on robot displacement from previous origin. Generates a grid of viewpoint positions from this origin.
+ * Shifts origin_ (hence also local planning horizon) based on robot displacement from previous origin. Generates a grid of viewpoint positions from this origin. 
+ * 
  * Theoreotically, shifts when robot displacement is >= kRolloverStepsize. However current implementation is kRolloverStepsize/2.
  * 
  * @param robot_position current ^x,<y,z of the robot with respect to starting position.
@@ -372,8 +373,8 @@ void ViewPointManager::UpdateOrigin()
 }
 
 /**
- * Returns either viewpoint_ind or array_ind depending on use_array_ind.
- * 
+ * Assert in range, Returns either viewpoint_ind (untouched argument) or array_ind depending on use_array_ind.
+ * TODO: InRange check already implicitely done in GetArrayInd
  * @param viewpoint_ind original viewpoint_index.
  * @param use_array_ind boolean indicating if we should return array_ind or viewpoint_ind.
  * @return viewpoint_ind or array_ind.
@@ -390,13 +391,13 @@ int ViewPointManager::GetViewPointInd(int viewpoint_array_ind) const
 }
 
 /**
- * Given a position, return subscript of grid. 
+ * Given a position, return subscript of grid at that position. origin is at [0,0] 
  * 
- * Function achieves this by getting the difference of the position from the origin. 
+ * Function achieves this by getting the displacement of the position from the origin and dividing by resolution. 
  * Sets subscript to -1 where difference is negative.
  * 
  * @param position query position.
- * @return subscript of grid, with dimensions set to -1 if invalid.
+ * @return Vector of subscript of grid, with dimensions set to -1 if invalid.
  */
 Eigen::Vector3i ViewPointManager::GetViewPointSub(Eigen::Vector3d position)
 {
@@ -410,7 +411,7 @@ Eigen::Vector3i ViewPointManager::GetViewPointSub(Eigen::Vector3d position)
 }
 
 /**
- * Gets subscripts, checks if they are in range of the grid, and returns if they are.
+ * Gets subscripts of grid at the position, checks if it is in range of the grid, and returns the index of the grid if it is.
  * 
  * @param position query position.
  * @return index of grid, if valid. Else -1.
