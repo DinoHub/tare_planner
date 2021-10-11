@@ -7,6 +7,16 @@
 
 namespace keypose_graph_ns
 {
+/**
+ * Main constructor for keypose nodes that initializes keypose.
+ * 
+ * @param x x position of keypose node.
+ * @param y y position of keypose node.
+ * @param z z position of keypose node.
+ * @param node_ind unique id for each node.
+ * @param keypose_id unique id for each keypose.
+ * @param is_keypose keypose or nonkeypose node.
+ */
 KeyposeNode::KeyposeNode(double x, double y, double z, int node_ind, int keypose_id, bool is_keypose)
   : cell_ind_(0), node_ind_(node_ind), keypose_id_(keypose_id), is_keypose_(is_keypose), is_connected_(true)
 {
@@ -19,11 +29,26 @@ KeyposeNode::KeyposeNode(double x, double y, double z, int node_ind, int keypose
   offset_to_keypose_.z = 0.0;
 }
 
+/**
+ * Overloaded constructor with a complex representation of keypose node point 
+ * that calls main constructor for keypose nodes.
+ * 
+ * @param point x,y,z of node.
+ * @param node_ind unique id for each node.
+ * @param keypose_id unique id for each keypose.
+ * @param is_keypose keypose or nonkeypose node.
+ */
 KeyposeNode::KeyposeNode(const geometry_msgs::Point& point, int node_ind, int keypose_id, bool is_keypose)
   : KeyposeNode(point.x, point.y, point.z, node_ind, keypose_id, is_keypose)
 {
 }
 
+/**
+ * Main constructor for KeyposeGraph that reads parameters into class and initializes kd trees 
+ * and point clouds.
+ * 
+ * @param nh main ROS node's handle.
+ */
 KeyposeGraph::KeyposeGraph(ros::NodeHandle& nh)
   : allow_vertical_edge_(false)
   , current_keypose_id_(0)
@@ -42,6 +67,11 @@ KeyposeGraph::KeyposeGraph(ros::NodeHandle& nh)
   nodes_cloud_ = pcl::PointCloud<pcl::PointXYZI>::Ptr(new pcl::PointCloud<pcl::PointXYZI>);
 }
 
+/**
+ * Reads parameters from ROS parameter server.
+ * 
+ * @param nh main ROS node's handle.
+ */
 void KeyposeGraph::ReadParameters(ros::NodeHandle& nh)
 {
   kAddNodeMinDist = misc_utils_ns::getParam<double>(nh, "keypose_graph/kAddNodeMinDist", 0.5);
@@ -56,6 +86,14 @@ void KeyposeGraph::ReadParameters(ros::NodeHandle& nh)
       misc_utils_ns::getParam<int>(nh, "keypose_graph/kAddEdgeCollisionCheckPointNumThr", 0.5);
 }
 
+/**
+ * Adds node to keypose graph.
+ * 
+ * @param position position of keypose node.
+ * @param node_ind node index of keypose.
+ * @param keypose_id unique id of keypose.
+ * @param is_keypose keypose status of input node.
+ */
 void KeyposeGraph::AddNode(const geometry_msgs::Point& position, int node_ind, int keypose_id, bool is_keypose)
 {
   KeyposeNode new_node(position, node_ind, keypose_id, is_keypose);
@@ -65,6 +103,16 @@ void KeyposeGraph::AddNode(const geometry_msgs::Point& position, int node_ind, i
   std::vector<double> neighbor_dist;
   dist_.push_back(neighbor_dist);
 }
+/**
+ * Adds node to keypose graph, and connects an edge from node to another node.
+ * 
+ * @param position position of keypose node.
+ * @param node_ind node index of keypose.
+ * @param keypose_id unique id of keypose.
+ * @param is_keypose keypose status of input node.
+ * @param connected_node_ind node index of node to connect edge to.
+ * @param connected_node_dist distance from input node to connected node.
+ */
 void KeyposeGraph::AddNodeAndEdge(const geometry_msgs::Point& position, int node_ind, int keypose_id, bool is_keypose,
                                   int connected_node_ind, double connected_node_dist)
 {
@@ -72,6 +120,13 @@ void KeyposeGraph::AddNodeAndEdge(const geometry_msgs::Point& position, int node
   AddEdge(connected_node_ind, node_ind, connected_node_dist);
 }
 
+/**
+ * Adds edge from origin to destination node.
+ * 
+ * @param from_node_ind origin node
+ * @param to_node_ind destination node
+ * @param dist distance between nodes
+ */
 void KeyposeGraph::AddEdge(int from_node_ind, int to_node_ind, double dist)
 {
   MY_ASSERT(from_node_ind >= 0 && from_node_ind < graph_.size() && from_node_ind < dist_.size());
@@ -84,6 +139,13 @@ void KeyposeGraph::AddEdge(int from_node_ind, int to_node_ind, double dist)
   dist_[to_node_ind].push_back(dist);
 }
 
+/**
+ * Checks if there's a keypose node within reasonable distance from query position by getting 
+ * the closest node index and distance to the query, then checking if it lies within range.
+ * 
+ * @param position query position
+ * @return boolean whether node within distance threshold exists.
+ */
 bool KeyposeGraph::HasNode(const Eigen::Vector3d& position)
 {
   int closest_node_ind = -1;
@@ -105,6 +167,12 @@ bool KeyposeGraph::HasNode(const Eigen::Vector3d& position)
   return false;
 }
 
+/**
+ * Checks if an edge exists between both query nodes.
+ * 
+ * @param node_ind1 query node 1.
+ * @param node_ind2 query node 2.
+ */
 bool KeyposeGraph::HasEdgeBetween(int node_ind1, int node_ind2)
 {
   if (node_ind1 >= 0 && node_ind1 < nodes_.size() && node_ind2 >= 0 && node_ind2 < nodes_.size())
@@ -125,6 +193,14 @@ bool KeyposeGraph::HasEdgeBetween(int node_ind1, int node_ind2)
   }
 }
 
+/**
+ * Checks for connectivity between two input positions for an edge between both positions, 
+ * or if both point to the same node.
+ * 
+ * @param from_position query position 1.
+ * @param to_position query position 2.
+ * @return returns true if both positions are same node, or have an edge between them. 
+ */
 bool KeyposeGraph::IsConnected(const Eigen::Vector3d& from_position, const Eigen::Vector3d& to_position)
 {
   geometry_msgs::Point from_node_position;
@@ -157,6 +233,13 @@ bool KeyposeGraph::IsConnected(const Eigen::Vector3d& from_position, const Eigen
   }
 }
 
+/**
+ * Adds a non keypose node if a node doesn't already exist near the input position. 
+ * If node already exists, returns index to preexisting node. 
+ * 
+ * @param new_node_position 
+ * @return index of added non-keypose node, or closest non-keypose node.
+ */
 int KeyposeGraph::AddNonKeyposeNode(const geometry_msgs::Point& new_node_position)
 {
   int new_node_index = -1;
@@ -185,6 +268,12 @@ int KeyposeGraph::AddNonKeyposeNode(const geometry_msgs::Point& new_node_positio
   return new_node_index;
 }
 
+/**
+ * Updates keypose graph to include nodes within the input path as long as they do not already 
+ * have an edge between them.
+ * 
+ * @param path input path.
+ */
 void KeyposeGraph::AddPath(const nav_msgs::Path& path)
 {
   if (path.poses.size() < 2)
@@ -195,6 +284,7 @@ void KeyposeGraph::AddPath(const nav_msgs::Path& path)
   for (int i = 0; i < path.poses.size(); i++)
   {
     int cur_node_index = AddNonKeyposeNode(path.poses[i].pose.position);
+    // TODO: why not just remove i != 0 and start from int i = 1?
     if (i != 0)
     {
       // Add edge to previous node
@@ -225,6 +315,13 @@ void KeyposeGraph::AddPath(const nav_msgs::Path& path)
   UpdateNodes();
 }
 
+/**
+ * Gets visualization markers for nodes and edges and pushes them into their respective 
+ * container.
+ * 
+ * @param[out] node_marker
+ * @param[out] edge_marker
+ */
 void KeyposeGraph::GetMarker(visualization_msgs::Marker& node_marker, visualization_msgs::Marker& edge_marker)
 {
   node_marker.points.clear();
@@ -235,6 +332,7 @@ void KeyposeGraph::GetMarker(visualization_msgs::Marker& node_marker, visualizat
     node_marker.points.push_back(node.position_);
   }
 
+  // Maintains a vector of edge coordinates to prevent duplicated adding of edge markers.
   std::vector<std::pair<int, int>> added_edge;
   for (int i = 0; i < graph_.size(); i++)
   {
@@ -254,6 +352,11 @@ void KeyposeGraph::GetMarker(visualization_msgs::Marker& node_marker, visualizat
   }
 }
 
+/**
+ * Returns total number of connected nodes.
+ * 
+ * @return number of connected nodes.
+ */
 int KeyposeGraph::GetConnectedNodeNum()
 {
   int connected_node_num = 0;
@@ -267,6 +370,12 @@ int KeyposeGraph::GetConnectedNodeNum()
   return connected_node_num;
 }
 
+/**
+ * Gets position of all nodes. Sets intensity of connected nodes to 10 if connected, and 
+ * -1 if not. Push position of all nodes into cloud provided to function.
+ * 
+ * @param[out] cloud point cloud used for visualization of nodes.
+ */
 void KeyposeGraph::GetVisualizationCloud(pcl::PointCloud<pcl::PointXYZI>::Ptr cloud)
 {
   cloud->clear();
@@ -288,6 +397,13 @@ void KeyposeGraph::GetVisualizationCloud(pcl::PointCloud<pcl::PointXYZI>::Ptr cl
   }
 }
 
+/**
+ * Does a depth first search to look for all nodes that are connected to query node.
+ * 
+ * @param query_ind query node index.
+ * @param[out] connected_node_indices indices of nodes that are connected to query node.
+ * @param[out] constraints boolean vector indicating if a particular graph node can be considered for DFS.
+ */
 void KeyposeGraph::GetConnectedNodeIndices(int query_ind, std::vector<int>& connected_node_indices,
                                            std::vector<bool> constraints)
 {
@@ -326,6 +442,14 @@ void KeyposeGraph::GetConnectedNodeIndices(int query_ind, std::vector<int>& conn
   }
 }
 
+/**
+ * Checks all non-keypose nodes on keypose graph for collision. If non-keypose node is in collision, remove 
+ * from graph. If non-keypose node is not in collision, check non-keypose node edges for collisions and prune 
+ * accordingly as well.
+ * 
+ * @param robot_position unused //todo: seems to be unused.
+ * @param viewpoint_manager for obtaining viewpoint information and checking collision.
+ */
 void KeyposeGraph::CheckLocalCollision(const geometry_msgs::Point& robot_position,
                                        const std::shared_ptr<viewpoint_manager_ns::ViewPointManager>& viewpoint_manager)
 {
@@ -347,16 +471,19 @@ void KeyposeGraph::CheckLocalCollision(const geometry_msgs::Point& robot_positio
         Eigen::Vector3d(nodes_[i].position_.x, nodes_[i].position_.y, nodes_[i].position_.z);
     int viewpoint_ind = viewpoint_manager->GetViewPointInd(node_position);
     bool node_in_collision = false;
+    
+    // Only check nodes if closest viewpoint to node is valid and within z range.
     if (viewpoint_manager->InRange(viewpoint_ind) &&
         std::abs(viewpoint_manager->GetViewPointHeight(viewpoint_ind) - node_position.z()) < max_z_diff)
     {
       in_local_planning_horizon_count++;
       in_viewpoint_range_count++;
+      // Case where viewpoint is in collision. Increments collision count and amends graph accordingly.
       if (viewpoint_manager->ViewPointInCollision(viewpoint_ind))
       {
         node_in_collision = true;
         collision_node_count++;
-        // Delete all the associated edges
+        // Delete all the associated edges as viewpoint is in collision.
         for (int j = 0; j < graph_[i].size(); j++)
         {
           int neighbor_ind = graph_[i][j];
@@ -393,6 +520,7 @@ void KeyposeGraph::CheckLocalCollision(const geometry_msgs::Point& robot_positio
             {
               if (viewpoint_manager->ViewPointInCollision(viewpoint_ind))
               {
+                // todo: what is the point of this variable? It is not used anywhere.
                 geometry_msgs::Point viewpoint_position = viewpoint_manager->GetViewPointPosition(viewpoint_ind);
                 // Delete neighbors' edges
                 for (int k = 0; k < graph_[neighbor_ind].size(); k++)
@@ -419,6 +547,10 @@ void KeyposeGraph::CheckLocalCollision(const geometry_msgs::Point& robot_positio
   }
 }
 
+/**
+ * Updates cloud with nodes within keypose graph, with intensity sorted according to 
+ * node order.
+ */
 void KeyposeGraph::UpdateNodes()
 {
   nodes_cloud_->clear();
@@ -437,6 +569,13 @@ void KeyposeGraph::UpdateNodes()
   }
 }
 
+/**
+ * Checks for connectivity from first keypose node. Gets all nodes connected to first keypose node and 
+ * populates a cloud with it. If keypose node is not valid or doesn't exist, take closest keypose node 
+ * to robot's current position.
+ * 
+ * @param robot_position used only if there is no keypose node within the keypose graph.
+ */
 void KeyposeGraph::CheckConnectivity(const geometry_msgs::Point& robot_position)
 {
   if (nodes_.empty())
@@ -463,6 +602,7 @@ void KeyposeGraph::CheckConnectivity(const geometry_msgs::Point& robot_position)
   {
     nodes_[i].is_connected_ = false;
   }
+  // Gets all connected nodes to first keypose node if first keypose node is valid.
   if (first_keypose_node_ind >= 0 && first_keypose_node_ind < nodes_.size())
   {
     nodes_[first_keypose_node_ind].is_connected_ = true;
@@ -470,6 +610,7 @@ void KeyposeGraph::CheckConnectivity(const geometry_msgs::Point& robot_position)
     std::vector<bool> constraint(nodes_.size(), true);
     GetConnectedNodeIndices(first_keypose_node_ind, connected_node_indices_, constraint);
   }
+  // Attempts to get connected nodes to closest node to robot's current position.
   else
   {
     int robot_node_ind = -1;
@@ -488,6 +629,7 @@ void KeyposeGraph::CheckConnectivity(const geometry_msgs::Point& robot_position)
     }
   }
 
+  // Populates connected_nodes_cloud with first keypose node and all nodes connected to it.
   connected_nodes_cloud_->clear();
   for (int i = 0; i < connected_node_indices_.size(); i++)
   {
@@ -506,6 +648,14 @@ void KeyposeGraph::CheckConnectivity(const geometry_msgs::Point& robot_position)
   }
 }
 
+/**
+ * Adds keypose node onto the graph and adds edges to all nodes within range. 
+ * Adds keypose node and connect it to either the last keypose (if in range), or to the closest keypose node. 
+ * Checks through all nodes that are within range, and add edge to them if within range.
+ * 
+ * @param keypose contains keypose position, and uses covariance field to store keypose ID.
+ * @param planning_env used for checking collision.
+ */
 int KeyposeGraph::AddKeyposeNode(const nav_msgs::Odometry& keypose, const planning_env_ns::PlanningEnv& planning_env)
 {
   current_keypose_position_ = keypose.pose.pose.position;
@@ -519,11 +669,13 @@ int KeyposeGraph::AddKeyposeNode(const nav_msgs::Odometry& keypose, const planni
       keypose_node_count++;
     }
   }
+  // If no keyposes exist, simply add node and return index.
   if (nodes_.empty() || keypose_node_count == 0)
   {
     AddNode(current_keypose_position_, new_node_ind, current_keypose_id_, true);
     return new_node_ind;
   }
+
   else
   {
     double min_dist = DBL_MAX;
@@ -533,6 +685,7 @@ int KeyposeGraph::AddKeyposeNode(const nav_msgs::Odometry& keypose, const planni
     int max_keypose_id = 0;
     std::vector<int> in_range_node_indices;
     std::vector<double> in_range_node_dist;
+    // Iterating through all nodes and getting nodes that are within a distance range.
     for (int i = 0; i < nodes_.size(); i++)
     {
       if (!allow_vertical_edge_)
@@ -580,7 +733,7 @@ int KeyposeGraph::AddKeyposeNode(const nav_msgs::Odometry& keypose, const planni
           // Add edge to the nearest node
           AddNodeAndEdge(current_keypose_position_, new_node_ind, current_keypose_id_, true, min_dist_ind, min_dist);
         }
-        // Check other nodes
+        // Check other nodes that are within range. If not in collision, add edge from new node.
         if (!in_range_node_indices.empty())
         {
           for (int idx = 0; idx < in_range_node_indices.size(); idx++)
@@ -636,6 +789,14 @@ int KeyposeGraph::AddKeyposeNode(const nav_msgs::Odometry& keypose, const planni
   }
 }
 
+/**
+ * Gets closest connected node to point. If node is within range and distance is less than a 
+ * threshold, consider the position to be reachable.
+ * 
+ * @param point query point.
+ * @param dist_threshold limit for point to be considered reachable.
+ * @return boolean indicating if position is reachable.
+ */
 bool KeyposeGraph::IsPositionReachable(const geometry_msgs::Point& point, double dist_threshold)
 {
   int closest_node_ind = 0;
@@ -651,6 +812,13 @@ bool KeyposeGraph::IsPositionReachable(const geometry_msgs::Point& point, double
   }
 }
 
+/**
+ * Gets closest connected node to point. If node is within range and distance is less than a 
+ * threshold, consider the position to be reachable.
+ * 
+ * @param point query point.
+ * @return boolean indicating if position is reachable.
+ */
 bool KeyposeGraph::IsPositionReachable(const geometry_msgs::Point& point)
 {
   int closest_node_ind = 0;
@@ -666,6 +834,12 @@ bool KeyposeGraph::IsPositionReachable(const geometry_msgs::Point& point)
   }
 }
 
+/**
+ * Gets closest connected node to point.
+ * 
+ * @param point query point.
+ * @return index of closest node.
+ */
 int KeyposeGraph::GetClosestNodeInd(const geometry_msgs::Point& point)
 {
   int node_ind = 0;
@@ -674,12 +848,20 @@ int KeyposeGraph::GetClosestNodeInd(const geometry_msgs::Point& point)
   return node_ind;
 }
 
+/**
+ * Gets index of closest connected node to point and its distance.
+ * 
+ * @param point query point.
+ * @param[out] node_ind index of closest connected node.
+ * @param[out] dist distance of closest connected node.
+ */
 void KeyposeGraph::GetClosestNodeIndAndDistance(const geometry_msgs::Point& point, int& node_ind, double& dist)
 {
   node_ind = -1;
   dist = DBL_MAX;
   if (nodes_cloud_->points.empty())
   {
+    // TODO: redundant
     node_ind = -1;
     dist = DBL_MAX;
     return;
@@ -720,7 +902,8 @@ void KeyposeGraph::GetClosestNodeIndAndDistance(const geometry_msgs::Point& poin
 }
 
 /**
- * Returns closest node index and its distance to query point. 
+ * Returns closest node index and its distance to query point. Finds closest node to query point using 
+ * KD Tree.
  * 
  * @param point query point.
  * @param[out] node_ind index of node closest to point.
@@ -757,6 +940,12 @@ void KeyposeGraph::GetClosestConnectedNodeIndAndDistance(const geometry_msgs::Po
   }
 }
 
+/**
+ * Returns keypose id of the closest node to query point.
+ * 
+ * @param point query point.
+ * @return keypose id.
+ */
 int KeyposeGraph::GetClosestKeyposeID(const geometry_msgs::Point& point)
 {
   int closest_node_ind = GetClosestNodeInd(point);
@@ -770,6 +959,12 @@ int KeyposeGraph::GetClosestKeyposeID(const geometry_msgs::Point& point)
   }
 }
 
+/**
+ * Get position of closest keypose node.
+ * 
+ * @param point query point.
+ * @return closest keypose node to query point.
+ */
 geometry_msgs::Point KeyposeGraph::GetClosestNodePosition(const geometry_msgs::Point& point)
 {
   int closest_node_ind = GetClosestNodeInd(point);
@@ -787,10 +982,23 @@ geometry_msgs::Point KeyposeGraph::GetClosestNodePosition(const geometry_msgs::P
   }
 }
 
+/**
+ * Finds keypose node closest to start point, and keypose node closest to target point, and 
+ * performs A* search from start to end with a maximum path length as a constraint.
+ * 
+ * @param start_point start point.
+ * @param target_point target point.
+ * @param max_path_length constraint of path length.
+ * @param get_path boolean signifying if path is needed.
+ * @param path path to be returned.
+ * @return success status of function.
+ */
+// TODO: Not sure if I'm missing something but this function does not return a boolean when nodes < 2
 bool KeyposeGraph::GetShortestPathWithMaxLength(const geometry_msgs::Point& start_point,
                                                 const geometry_msgs::Point& target_point, double max_path_length,
                                                 bool get_path, nav_msgs::Path& path)
 {
+  // if there are less than 2 keypose nodes, just return start to end path.
   if (nodes_.size() < 2)
   {
     if (get_path)
@@ -808,6 +1016,7 @@ bool KeyposeGraph::GetShortestPathWithMaxLength(const geometry_msgs::Point& star
   int to_idx = 0;
   double min_dist_to_start = DBL_MAX;
   double min_dist_to_target = DBL_MAX;
+  // Getting closest node to start and target.
   for (int i = 0; i < nodes_.size(); i++)
   {
     if (allow_vertical_edge_)
@@ -816,11 +1025,13 @@ bool KeyposeGraph::GetShortestPathWithMaxLength(const geometry_msgs::Point& star
           misc_utils_ns::PointXYZDist<geometry_msgs::Point, geometry_msgs::Point>(nodes_[i].position_, start_point);
       double dist_to_target =
           misc_utils_ns::PointXYZDist<geometry_msgs::Point, geometry_msgs::Point>(nodes_[i].position_, target_point);
+      // get keypose node closest to start point.
       if (dist_to_start < min_dist_to_start)
       {
         min_dist_to_start = dist_to_start;
         from_idx = i;
       }
+      // get keypose node closest to target.
       if (dist_to_target < min_dist_to_target)
       {
         min_dist_to_target = dist_to_target;
@@ -829,6 +1040,7 @@ bool KeyposeGraph::GetShortestPathWithMaxLength(const geometry_msgs::Point& star
     }
     else
     {
+      // If vertical edges are not allowed, only allow points within a threshold.
       double z_diff_to_start = std::abs(nodes_[i].position_.z - start_point.z);
       double z_diff_to_target = std::abs(nodes_[i].position_.z - target_point.z);
       // TODO: parameterize this
@@ -842,6 +1054,7 @@ bool KeyposeGraph::GetShortestPathWithMaxLength(const geometry_msgs::Point& star
           from_idx = i;
         }
       }
+      // TODO: parameterize this
       if (z_diff_to_target < 1.5)
       {
         double xy_dist_to_target =
@@ -886,8 +1099,8 @@ bool KeyposeGraph::GetShortestPathWithMaxLength(const geometry_msgs::Point& star
  * Uses A* search to check for shortest path from index closest to start point and index closest ot target point. 
  * Updates path if specified and returns the distance of the shortest path.
  * 
- * @param start_point
- * @param target_point
+ * @param start_point start point.
+ * @param target_point target point.
  * @param get_path boolean specifying if path is required.
  * @param[out] path shortest path.
  * @param use_connected_nodes boolean specifying if only connected nodes are to be used.
@@ -1010,12 +1223,18 @@ geometry_msgs::Point KeyposeGraph::GetFirstKeyposePosition()
   return point;
 }
 
+/**
+ * For a given keypose id, get the position of the keypose node.
+ * 
+ * @param keypose_id query keypose.
+ */
 geometry_msgs::Point KeyposeGraph::GetKeyposePosition(int keypose_id)
 {
   geometry_msgs::Point point;
   point.x = 0;
   point.y = 0;
   point.z = 0;
+  // TODO: can use normal find function c++.
   for (const auto& node : nodes_)
   {
     if (node.keypose_id_ == keypose_id)
@@ -1027,6 +1246,11 @@ geometry_msgs::Point KeyposeGraph::GetKeyposePosition(int keypose_id)
   return point;
 }
 
+/**
+ * Return positions of all keyposes within the keypose graph.
+ * 
+ * @param[out] positions output vector of keypose positions.
+ */
 void KeyposeGraph::GetKeyposePositions(std::vector<Eigen::Vector3d>& positions)
 {
   positions.clear();

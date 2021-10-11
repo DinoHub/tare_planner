@@ -86,6 +86,8 @@ void readBoundaryFile()
   fclose(boundary_file);
 }
 
+// Spins up navigationBoundary node that publishes boundary messages, messages that publishes the boundary as a series 
+// of polygons. Reads polygons from the boundary file directory provided. Publishes the boundary at certain frame rate.
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "navigationBoundary");
