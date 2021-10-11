@@ -236,6 +236,9 @@ void SensorCoveragePlanner3D::ExplorationStartCallback(const std_msgs::Bool::Con
   }
 }
 
+/**
+ * Updates pd_.robot_position_ and robot_yaw_, updates bool moving_forward_ and sets initialized_ to true.
+ */
 void SensorCoveragePlanner3D::StateEstimationCallback(const nav_msgs::Odometry::ConstPtr& state_estimation_msg)
 {
   pd_.robot_position_ = state_estimation_msg->pose.pose.position;
@@ -460,6 +463,9 @@ void SensorCoveragePlanner3D::UpdateKeyposeGraph()
   update_keypose_graph_timer.Stop(false);
 }
 
+/**
+ * Get and update collision cloud. Use cloud to get viewpoint candidates. Updates robot pose as visited viewpoints.
+ */
 int SensorCoveragePlanner3D::UpdateViewPoints()
 {
   misc_utils_ns::Timer collision_cloud_timer("update collision cloud");
@@ -530,6 +536,9 @@ void SensorCoveragePlanner3D::UpdateRobotViewPointCoverage()
   }
 }
 
+/**
+ * Updates covered area in the planning_env and publishes the clouds of uncovered areas.
+ */
 void SensorCoveragePlanner3D::UpdateCoveredAreas(int& uncovered_point_num, int& uncovered_frontier_point_num)
 {
   // Update covered area
@@ -545,6 +554,9 @@ void SensorCoveragePlanner3D::UpdateCoveredAreas(int& uncovered_point_num, int& 
   pd_.planning_env_->PublishUncoveredFrontierCloud();
 }
 
+/**
+ * If current position has not been visited, add it to pd_.visited_positions_
+ */
 void SensorCoveragePlanner3D::UpdateVisitedPositions()
 {
   Eigen::Vector3d robot_current_position(pd_.robot_position_.x, pd_.robot_position_.y, pd_.robot_position_.z);
@@ -617,6 +629,9 @@ void SensorCoveragePlanner3D::UpdateGlobalRepresentation()
   }
 }
 
+/** 
+ * Updates viewpoint_manager and keypose_graph and uses them to output global path
+ */
 void SensorCoveragePlanner3D::GlobalPlanning(std::vector<int>& global_cell_tsp_order,
                                              exploration_path_ns::ExplorationPath& global_path)
 {
@@ -1227,12 +1242,12 @@ void SensorCoveragePlanner3D::PrintExplorationStatus(std::string status, bool cl
 
 /**
  * Counts the number of direction changes and momentum activations since advent of TARE planner. These are used 
- * as guiding metrics, and are not part of logic.
+ * as guiding metrics, and are not part of logic. Updates pd_.last_robot_pos_. 
  * 
- * Checks for direction change by considering movements with substantial magniture that has negative 
+ * Checks for direction change by considering movements with substantial magnitude that has negative 
  * dot product. If no direction change, resets direction change counter and increments direction no change counter. 
  * 
- * Also increments momentum activation if there was no direction change previously but there's a direction change now. 
+ * Also activates momemtum and increments momentum activation counter if direction change counter exceeds a threshold. 
  * Consecutive direction changes will not increment momentum activation counts.
  */
 void SensorCoveragePlanner3D::CountDirectionChange()
@@ -1304,7 +1319,7 @@ void SensorCoveragePlanner3D::execute(const ros::TimerEvent&)
   }
 
   overall_processing_timer.Start();
-  if (keypose_cloud_update_)
+  if (keypose_cloud_update_) //this is set to true every 5 scans (above)
   {
     keypose_cloud_update_ = false;
 
