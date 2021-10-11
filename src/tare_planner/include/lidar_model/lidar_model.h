@@ -34,10 +34,14 @@ public:
   ~LiDARModel() = default;
 
   /**
-   * @brief
-   * TODO
-   * @tparam PointType
-   * @param point
+   * @brief Updates viewpoint coverage of robot, from LiDAR point of view.
+   * 
+   * Iterates through neighbors of the point, and updates covered voxel with distance to point if current distance to 
+   * point is less than previous distance to point, or if reset was set to true for that particular point. Changes 
+   * reset status to false for covered points.
+   * 
+   * @tparam PointType type of point.
+   * @param point point to update coverage with.
    */
   template <class PointType>
   void UpdateCoverage(const PointType& point)
@@ -81,10 +85,9 @@ public:
   /**
    * Checks if point is visible from LiDAR pose. 
    * 
-   * Calculates a horizontal angle and vertical angle from the distance  
-   * between LiDAR pose and point. Uses these angles to iterate through  
-   * the points neighbors, returning true if there exists a point within 
-   * covered_voxel_ which was closer to LiDAR than current query point.
+   * Calculates a horizontal angle and vertical angle from LiDAR pose and point. Gets number of horizontal/vertical 
+   * neighbors, and iterates through them, returning true if there exists a point within covered_voxel_ which 
+   * was closer to LiDAR than current query point, OR point was tagged to be reset_.
    * 
    * @tparam PointType signifies the type of the query point.
    * @param point query point.
@@ -121,6 +124,8 @@ public:
           continue;
         int ind = sub2ind(row_index, column_index);
         float previous_distance_to_point = covered_voxel_[ind];
+        // Distance has to be less than previous distance + occlusion threshold AND reset has to be false
+        // or reset just has to be true for point to be considered as visible.
         if ((!isZero(previous_distance_to_point) &&
              distance_to_point < previous_distance_to_point + occlusion_threshold && !reset_[ind]) ||
             reset_[ind])
@@ -131,18 +136,9 @@ public:
     }
     return false;
   }
-  /**
-   * @brief
-   * TODO
-   */
+
   void ResetCoverage();
-  /**
-   * @brief Get the Visualization Cloud object
-   * TODO
-   * @param visualization_cloud
-   * @param resol
-   * @param max_range
-   */
+
   void GetVisualizationCloud(pcl::PointCloud<pcl::PointXYZI>::Ptr& visualization_cloud, double resol = 0.2,
                              double max_range = 25.0) const;
 
@@ -202,8 +198,11 @@ private:
   }
 
   /**
-   * @brief Get the Horizontal Angle object
-   * TODO
+   * @brief Get the Horizontal Angle object 
+   * 
+   * atan2 gives angle in Euclidean plane between positive x axis and the ray to the point, from the robot.
+   * Divides it by the reesolution to get horizontal angle. 
+   * 
    * @param dx
    * @param dy
    * @return int
@@ -215,7 +214,10 @@ private:
   }
   /**
    * @brief Get the Vertical Angle object
-   * TODO
+   * 
+   * acos(dz / distance to point) gives angle in Euclidean point between positive y axis and ray to the point 
+   * from the robot. 
+   * 
    * @param dz
    * @param distance_to_point
    * @return int
@@ -227,10 +229,16 @@ private:
     return static_cast<int>(round(vertical_angle));
   }
   /**
-   * @brief Get the Horizontal Neighbor Num object
-   * TODO
+   * @brief Get the Horizontal Neighbor Num object 
+   * 
+   * Gets total number of horizontal neighbors by getting the number of degrees covered in horizontal direction, 
+   * converting it to degrees, and dividing it by horizontal resolution to get number of points within the horizontal 
+   * direction. Divides by two to account for both positive and negative direction. 
+   * 
+   * kHorizontalResolution (horizontal points per degree)
+   * 
    * @param distance_to_point
-   * @return int
+   * @return number of horizontal neighbors, divided by 2.
    */
   inline int GetHorizontalNeighborNum(double distance_to_point) const
   {
@@ -239,19 +247,37 @@ private:
   }
   /**
    * @brief Get the Vertical Neighbor Num object
-   * TODO
+   * 
+   * Gets total number of vertical neighbors by getting the number of degrees covered in vertical direction, 
+   * converting it to degrees, and dividing it by vertical resolution to get number of points within the vertical 
+   * direction. Divides by two to account for both positive and negative direction. 
+   * 
+   * kVerticalResolution (horizontal points per degree)
+   * 
    * @param distance_to_point
-   * @return int
+   * @return number of vertical neighbors, divided by 2.
    */
   inline int GetVerticalNeighborNum(double distance_to_point) const
   {
     return static_cast<int>(ceil(pointcloud_resolution_ / distance_to_point * kToDegreeConst / kVerticalResolution)) /
            2;
   }
+  /**
+   * Checks that row is within range.
+   * 
+   * @param row_index query row index.
+   * @return true if row index is within range, false otherwise.
+   */
   inline bool RowIndexInRange(int row_index) const
   {
     return row_index >= 0 && row_index < kVerticalVoxelSize;
   }
+  /**
+   * Checks that column is within range.
+   * 
+   * @param column_index query column index.
+   * @return true if column index is within range, false otherwise.
+   */
   inline bool ColumnIndexInRange(int column_index) const
   {
     return column_index >= 0 && column_index < kHorizontalVoxelSize;
