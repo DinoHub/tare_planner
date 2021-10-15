@@ -570,6 +570,7 @@ exploration_path_ns::ExplorationPath LocalCoveragePlanner::SolveTSP(const std::v
   }
 
   // Get rid of the dummy node connecting the robot and lookahead point
+  // TODO: Shouldn't this be already removed when passing true in getSolutionNodeIndex()?
   for (int i = 0; i < path_index.size(); i++)
   {
     if (path_index[i] >= selected_viewpoint_indices.size() || path_index[i] < 0)

@@ -66,11 +66,17 @@ template <class CloudType>
 void KeyposeToMap(CloudType& cloud, const nav_msgs::Odometry::ConstPtr& keypose);
 double PointXYDist(const geometry_msgs::Point& pnt1, const geometry_msgs::Point& pnt2);
 double PointXYDist(const PCLPointType& pnt1, const PCLPointType& pnt2);
+/**
+ * Function to calculate and return the euclidean distance between the 2 input 2D points.
+ */
 template <class P1, class P2>
 double PointXYDist(const P1& pnt1, const P2& pnt2)
 {
   return sqrt(pow((pnt1.x - pnt2.x), 2) + pow((pnt1.y - pnt2.y), 2));
 }
+/**
+ * Function to calculate and return the euclidean distance between the 2 input 3D points.
+ */
 template <class P1, class P2>
 double PointXYZDist(const P1& pnt1, const P2& pnt2)
 {
@@ -155,6 +161,9 @@ bool InRange(const std::vector<T>& list, int index)
 {
   return index >= 0 && index < list.size();
 }
+/**
+ * Function to get and return parameter (defined in config\.yaml). If not available, return default_val
+ */
 template <typename T>
 T getParam(ros::NodeHandle* nh, const std::string& name, const T default_val)
 {
@@ -167,6 +176,9 @@ T getParam(ros::NodeHandle* nh, const std::string& name, const T default_val)
   }
   return val;
 }
+/**
+ * Function to get and return parameter (defined in config\.yaml). If not available, return default_val
+ */
 template <typename T>
 T getParam(ros::NodeHandle& nh, const std::string& name, const T default_val)
 {
@@ -206,6 +218,9 @@ void Publish(const ros::Publisher& publisher, ROSMsgType& msg, const std::string
 
 void SetDifference(std::vector<int>& v1, std::vector<int>& v2, std::vector<int>& diff);
 
+/**
+ * Simple class for calculating duration by std::chrono
+ */
 class Timer
 {
 private:
