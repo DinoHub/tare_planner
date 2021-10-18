@@ -104,6 +104,15 @@ double LineSegDistance3D(const geometry_msgs::Point& point, const geometry_msgs:
 double DistancePoint2DToPolygon(const geometry_msgs::Point& point, const geometry_msgs::Polygon& polygon);
 void LinInterpPoints(const Eigen::Vector3d& p1, const Eigen::Vector3d& p2, double resolution,
                      std::vector<Eigen::Vector3d>& interp_points);
+/**
+ * Function to create linearly interpolated points between 2 input pointcloud points. 
+ * TODO: point1 is added twice into the cloud. Start for loop at i=1 instead. 
+ * TODO: It may make even more sense to add a constant dist of 'resolution' instead of '(p2 - p1) / point_num' 
+ * @param p1 start point. this point will always be added to the cloud.
+ * @param p2 second point to calculate distance, this point will always be added to the cloud. 
+ * @param resolution distance between 2 interpolated points. if p2-p1 is less than this, then vector will only include those 2 points and no interpolation is done.
+ * @param interp_points reference to pointcloud which stores the interpolated points.
+ */
 template <class PCLPointType>
 void LinInterpPoints(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2, double resolution,
                      typename pcl::PointCloud<PCLPointType>::Ptr& cloud)
@@ -207,7 +216,9 @@ void PublishCloud(const ros::Publisher& cloud_publisher, const PCLPointCloudType
   cloud_msg.header.stamp = ros::Time::now();
   cloud_publisher.publish(cloud_msg);
 }
-
+/**
+ * Helper function to call publisher.publish(msg). Adds current timestamp to msg
+ */
 template <class ROSMsgType>
 void Publish(const ros::Publisher& publisher, ROSMsgType& msg, const std::string& frame_id)
 {
@@ -296,7 +307,9 @@ public:
     }
   }
 };
-
+/**
+ * Object for visualization that publishes visualization_msgs::Marker to pub_topic
+ */
 class Marker
 {
 private:
