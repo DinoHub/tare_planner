@@ -754,9 +754,9 @@ void GridWorld::UpdateCellStatus(const std::shared_ptr<viewpoint_manager_ns::Vie
  * 
  * Constructs distance matrix and solves TSP. Returns global path.
  * 
- * @param[in] viewpoint_manager
- * @param[out] ordered_cell_indices
- * @param[in] keypose_graph
+ * @param[in] viewpoint_manager used for helper functions for viewpoints from the keypose graph.
+ * @param[out] ordered_cell_indices order of cells for global path.
+ * @param[in] keypose_graph keypose graph to solve global TSP on.
  * @return global path.
  */
 exploration_path_ns::ExplorationPath GridWorld::SolveGlobalTSP(

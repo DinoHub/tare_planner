@@ -14,6 +14,12 @@
 
 namespace sensor_coverage_planner_3d_ns
 {
+/**
+ * Reads parameters from ROS parameter server.
+ * 
+ * @param nh main ROS node's handle.
+ * @return status of parameter reading.
+ */
 bool PlannerParameters::ReadParameters(ros::NodeHandle& nh)
 {
   sub_start_exploration_topic_ =
@@ -65,6 +71,12 @@ bool PlannerParameters::ReadParameters(ros::NodeHandle& nh)
   return true;
 }
 
+/**
+ * Initializes point clouds and modules for TARE, all stored within the PlannerData struct.
+ * 
+ * @param nh main ROS node's handle.
+ * @param nh_p main ROS node's private handle.
+ */
 void PlannerData::Initialize(ros::NodeHandle& nh, ros::NodeHandle& nh_p)
 {
   keypose_cloud_ =
@@ -153,6 +165,12 @@ void PlannerData::Initialize(ros::NodeHandle& nh, ros::NodeHandle& nh_p)
   last_robot_position_ = robot_position_;
 }
 
+/**
+ * Initializes TARE planner.
+ * 
+ * @param nh main ROS node's handle.
+ * @param nh_p main ROS node's private handle.
+ */
 SensorCoveragePlanner3D::SensorCoveragePlanner3D(ros::NodeHandle& nh, ros::NodeHandle& nh_p)
   : keypose_cloud_update_(false)
   , initialized_(false)
@@ -178,6 +196,19 @@ SensorCoveragePlanner3D::SensorCoveragePlanner3D(ros::NodeHandle& nh, ros::NodeH
   PrintExplorationStatus("Exploration Started", false);
 }
 
+/**
+ * Reads parameters into PlannerParameters and initializes PlannerData with all point clouds and modules required for 
+ * TARE. 
+ * 
+ * Starts subscribers for: exploration start, registered scan, terrain map, terrain map ext, state estimation, coverage 
+ * boundary, viewpoint boundary and nogo boundary.
+ * 
+ * Starts publishers for: global path full, global path, old global path, to nearest global subspace path, local tsp 
+ * path, exploration path, waypoint, exploration finish, runtime breakdown, runtime and momentum activation count.
+ * 
+ * @param nh main ROS node's handle.
+ * @param nh_p main ROS node's private handle.
+ */
 bool SensorCoveragePlanner3D::initialize(ros::NodeHandle& nh, ros::NodeHandle& nh_p)
 {
   if (!pp_.ReadParameters(nh_p))
@@ -228,6 +259,11 @@ bool SensorCoveragePlanner3D::initialize(ros::NodeHandle& nh, ros::NodeHandle& n
   return true;
 }
 
+/**
+ * Sets start exploration status to true upon receiving valid message on exploration start.
+ * 
+ * @param start_msg message indicating start of exporation.
+ */
 void SensorCoveragePlanner3D::ExplorationStartCallback(const std_msgs::Bool::ConstPtr& start_msg)
 {
   if (start_msg->data)
@@ -237,7 +273,10 @@ void SensorCoveragePlanner3D::ExplorationStartCallback(const std_msgs::Bool::Con
 }
 
 /**
- * Updates pd_.robot_position_ and robot_yaw_, updates bool moving_forward_ and sets initialized_ to true.
+ * Callback function that updates robot position and robot yaw within PlannerData. Updates moving forward within 
+ * PlannerData according to direction of robot movement. Sets initialized status of SensorCoveragePlanner3D to true.
+ * 
+ * @param state_estimation_msg message containing state estimation of robot.
  */
 void SensorCoveragePlanner3D::StateEstimationCallback(const nav_msgs::Odometry::ConstPtr& state_estimation_msg)
 {
@@ -323,6 +362,13 @@ void SensorCoveragePlanner3D::RegisteredScanCallback(const sensor_msgs::PointClo
   }
 }
 
+/**
+ * Callback function for updating terrain map pointcloud. Iterates through all points in pointcloud from incoming 
+ * message, and appends points with greater intensity than the Terrain Collision Threshold into the terrain collision 
+ * cloud within PlannerData.
+ * 
+ * @param terrain_map_msg inbound message containing terrain collision information.
+ */
 void SensorCoveragePlanner3D::TerrainMapCallback(const sensor_msgs::PointCloud2ConstPtr& terrain_map_msg)
 {
   if (pp_.kCheckTerrainCollision)
@@ -340,6 +386,13 @@ void SensorCoveragePlanner3D::TerrainMapCallback(const sensor_msgs::PointCloud2C
   }
 }
 
+/**
+ * Callback function for updating terrain map ext collision pointcloud. Iterates through all points in pointcloud from 
+ * incoming message, and appends points with greater intensity than the Terrain Collision Threshold into the terrain 
+ * collision ext cloud within PlannerData.
+ * 
+ * @param terrain_map_ext_msg inbound message containing terrain collision information.
+ */
 void SensorCoveragePlanner3D::TerrainMapExtCallback(const sensor_msgs::PointCloud2ConstPtr& terrain_map_ext_msg)
 {
   if (pp_.kUseTerrainHeight)
@@ -360,16 +413,33 @@ void SensorCoveragePlanner3D::TerrainMapExtCallback(const sensor_msgs::PointClou
   }
 }
 
+/**
+ * Callback function that updates coverage boundary.
+ * 
+ * @param polygon_msg contains polygon with coverage boundary. 
+ */
 void SensorCoveragePlanner3D::CoverageBoundaryCallback(const geometry_msgs::PolygonStampedConstPtr& polygon_msg)
 {
   pd_.planning_env_->UpdateCoverageBoundary((*polygon_msg).polygon);
 }
 
+/**
+ * Callback function that updates viewpoint boundary.
+ * 
+ * @param polygon_msg contains polygon with viewpoint boundary. 
+ */
 void SensorCoveragePlanner3D::ViewPointBoundaryCallback(const geometry_msgs::PolygonStampedConstPtr& polygon_msg)
 {
   pd_.viewpoint_manager_->UpdateViewPointBoundary((*polygon_msg).polygon);
 }
 
+/**
+ * Callback function that updates nogo boundary. Pushes different polygon points with same z value into nogo boundary 
+ * vector, then updates the nogo boundary through the viewpoint manager. Populates nogo boundary marker and publishes 
+ * the marker for visualization.
+ * 
+ * @param polygon_msg contains polygon with nogo boundary. 
+ */
 void SensorCoveragePlanner3D::NogoBoundaryCallback(const geometry_msgs::PolygonStampedConstPtr& polygon_msg)
 {
   if (polygon_msg->polygon.points.empty())
@@ -380,6 +450,7 @@ void SensorCoveragePlanner3D::NogoBoundaryCallback(const geometry_msgs::PolygonS
   int polygon_point_size = polygon_msg->polygon.points.size();
   std::vector<geometry_msgs::Polygon> nogo_boundary;
   geometry_msgs::Polygon polygon;
+  // Iterating through polygon message, keeping points with same z-value as one polygon.
   for (int i = 0; i < polygon_point_size; i++)
   {
     if (polygon_msg->polygon.points[i].z == polygon_id)
@@ -446,6 +517,10 @@ void SensorCoveragePlanner3D::SendInitialWaypoint()
   waypoint_pub_.publish(waypoint);
 }
 
+/**
+ * Checks non keypose nodes for collision, and updates keypose node connectivity. Once keypose nodes within the graph 
+ * are updated, publish keypose graph visualization cloud.
+ */
 void SensorCoveragePlanner3D::UpdateKeyposeGraph()
 {
   misc_utils_ns::Timer update_keypose_graph_timer("update keypose graph");
@@ -503,6 +578,9 @@ int SensorCoveragePlanner3D::UpdateViewPoints()
   return viewpoint_candidate_count;
 }
 
+/**
+ * @todo viewpoint manager has functions in header that have not been documented, under this function.
+ */
 void SensorCoveragePlanner3D::UpdateViewPointCoverage()
 {
   // Update viewpoint coverage
@@ -582,7 +660,6 @@ void SensorCoveragePlanner3D::UpdateVisitedPositions()
  * and publish new visualization point cloud.
  * 
  * Updates keypose cloud within planning environment.
- * 
  */
 void SensorCoveragePlanner3D::UpdateGlobalRepresentation()
 {
@@ -630,7 +707,10 @@ void SensorCoveragePlanner3D::UpdateGlobalRepresentation()
 }
 
 /** 
- * Updates viewpoint_manager and keypose_graph and uses them to output global path
+ * Global planner. Updates viewpoint manager and keypose graph and uses them to obtain a global path.
+ * 
+ * @param[out] global_cell_tsp_order cell indices, in order, from solved global TSP. 
+ * @param[out] global_path path from solved global TSP.
  */
 void SensorCoveragePlanner3D::GlobalPlanning(std::vector<int>& global_cell_tsp_order,
                                              exploration_path_ns::ExplorationPath& global_path)
@@ -650,6 +730,12 @@ void SensorCoveragePlanner3D::GlobalPlanning(std::vector<int>& global_cell_tsp_o
   global_planning_runtime_ = global_tsp_timer.GetDuration("ms");
 }
 
+/** 
+ * Visualizes global path.
+ * 
+ * @param global_path global path to be visualized. 
+ * @param local_path local path used for creating trimmed global path.
+ */
 void SensorCoveragePlanner3D::PublishGlobalPlanningVisualization(
     const exploration_path_ns::ExplorationPath& global_path, const exploration_path_ns::ExplorationPath& local_path)
 {
@@ -726,6 +812,14 @@ void SensorCoveragePlanner3D::PublishGlobalPlanningVisualization(
   // pd_.planning_env_->PublishStackedCloud();
 }
 
+/**
+ * Local planner.
+ * 
+ * @param uncovered_point_num surface points covered by unvisited viewpoints.
+ * @param uncovered_frontier_point_num surface frontier points covered by unvisited viewpoints.
+ * @param global_path global path.
+ * @param[out] local_path computed local path.
+ */
 void SensorCoveragePlanner3D::LocalPlanning(int uncovered_point_num, int uncovered_frontier_point_num,
                                             const exploration_path_ns::ExplorationPath& global_path,
                                             exploration_path_ns::ExplorationPath& local_path)
@@ -741,6 +835,11 @@ void SensorCoveragePlanner3D::LocalPlanning(int uncovered_point_num, int uncover
   local_tsp_timer.Stop(false);
 }
 
+/**
+ * Visualizes local path.
+ * 
+ * @param local_path local path to be visualized.
+ */
 void SensorCoveragePlanner3D::PublishLocalPlanningVisualization(const exploration_path_ns::ExplorationPath& local_path)
 {
   pd_.viewpoint_manager_->GetVisualizationCloud(pd_.viewpoint_vis_cloud_->cloud_);
@@ -756,10 +855,20 @@ void SensorCoveragePlanner3D::PublishLocalPlanningVisualization(const exploratio
   // Visualize local planning horizon box
 }
 
+/**
+ * If exploration is finished, robot is near home and parameter Rush Home is set to be true, set the full path to be 
+ * robot's current path and home path.
+ * 
+ * Otherwise, sets full path to the local path, and updates local path end / start statuses by checking node types.
+ * 
+ * @param global_path computed global path.
+ * @param local_path computed local path.
+ */
 exploration_path_ns::ExplorationPath SensorCoveragePlanner3D::ConcatenateGlobalLocalPath(
     const exploration_path_ns::ExplorationPath& global_path, const exploration_path_ns::ExplorationPath& local_path)
 {
   exploration_path_ns::ExplorationPath full_path;
+  // Send robot home.
   if (exploration_finished_ && near_home_ && pp_.kRushHome)
   {
     exploration_path_ns::Node node;
@@ -803,6 +912,19 @@ exploration_path_ns::ExplorationPath SensorCoveragePlanner3D::ConcatenateGlobalL
   return full_path;
 }
 
+/**
+ * Uses robot's local and global path to get a lookahead point. 
+ * 
+ * The lookahead point is the farthest point along the local path (from either direction) that has to be greater than 
+ * the lookahead distance, isn't in line of sight, and is either a local viewpoint, local path start, local path end, 
+ * or the final node along the local path.
+ * 
+ * Obtains a lookahead point from the front and back of the local path, then uses metrics to determine if the lookahead 
+ * point from front, back or previous lookahead point is the best lookahead candidate.
+ * 
+ * @param[out] lookahead_point computed lookahead point.
+ * @return status of function call.
+ */
 bool SensorCoveragePlanner3D::GetLookAheadPoint(const exploration_path_ns::ExplorationPath& local_path,
                                                 const exploration_path_ns::ExplorationPath& global_path,
                                                 Eigen::Vector3d& lookahead_point)
@@ -810,6 +932,7 @@ bool SensorCoveragePlanner3D::GetLookAheadPoint(const exploration_path_ns::Explo
   Eigen::Vector3d robot_position(pd_.robot_position_.x, pd_.robot_position_.y, pd_.robot_position_.z);
 
   // Determine which direction to follow on the global path
+  // Get distance from start to first GLOBAL_VIEWPOINT.
   double dist_from_start = 0.0;
   for (int i = 1; i < global_path.nodes_.size(); i++)
   {
@@ -820,6 +943,7 @@ bool SensorCoveragePlanner3D::GetLookAheadPoint(const exploration_path_ns::Explo
     }
   }
 
+  // Get distance from end to first GLOBAL_VIEWPOINT.
   double dist_from_end = 0.0;
   for (int i = global_path.nodes_.size() - 2; i > 0; i--)
   {
@@ -830,6 +954,7 @@ bool SensorCoveragePlanner3D::GetLookAheadPoint(const exploration_path_ns::Explo
     }
   }
 
+  // Checks local path if any node in the local path is too close to the robot position. Break once found.
   bool local_path_too_short = true;
   for (int i = 0; i < local_path.nodes_.size(); i++)
   {
@@ -871,6 +996,7 @@ bool SensorCoveragePlanner3D::GetLookAheadPoint(const exploration_path_ns::Explo
     return false;
   }
 
+  // Gets robot and lookahead index.
   bool has_lookahead = false;
   bool dir = true;
   int robot_i = 0;
@@ -891,6 +1017,7 @@ bool SensorCoveragePlanner3D::GetLookAheadPoint(const exploration_path_ns::Explo
   int forward_viewpoint_count = 0;
   int backward_viewpoint_count = 0;
 
+  // Checks if there is a local loop.
   bool local_loop = false;
   if (local_path.nodes_.front() == local_path.nodes_.back() &&
       local_path.nodes_.front().type_ == exploration_path_ns::NodeType::ROBOT)
@@ -898,6 +1025,7 @@ bool SensorCoveragePlanner3D::GetLookAheadPoint(const exploration_path_ns::Explo
     local_loop = true;
   }
 
+  // Counting forward / backward viewpoint.
   if (local_loop)
   {
     robot_i = 0;
@@ -934,6 +1062,7 @@ bool SensorCoveragePlanner3D::GetLookAheadPoint(const exploration_path_ns::Explo
   bool forward_lookahead_point_in_los = true;
   bool backward_lookahead_point_in_los = true;
   double length_from_robot = 0.0;
+  // Getting forward lookahead point.
   for (int i = robot_i + 1; i < local_path.GetNodeNum(); i++)
   {
     length_from_robot += (local_path.nodes_[i].position_ - local_path.nodes_[i - 1].position_).norm();
@@ -943,6 +1072,7 @@ bool SensorCoveragePlanner3D::GetLookAheadPoint(const exploration_path_ns::Explo
     {
       in_line_of_sight = pd_.viewpoint_manager_->InCurrentFrameLineOfSight(local_path.nodes_[i + 1].position_);
     }
+    // forward lookahead point is defined as either LOCAL VIEWPOINT / LOCAL PATH START or LOCAL PATH END.
     if ((length_from_robot > pp_.kLookAheadDistance || (pp_.kUseLineOfSightLookAheadPoint && !in_line_of_sight) ||
          local_path.nodes_[i].type_ == exploration_path_ns::NodeType::LOCAL_VIEWPOINT ||
          local_path.nodes_[i].type_ == exploration_path_ns::NodeType::LOCAL_PATH_START ||
@@ -964,6 +1094,7 @@ bool SensorCoveragePlanner3D::GetLookAheadPoint(const exploration_path_ns::Explo
     robot_i = local_path.nodes_.size() - 1;
   }
   length_from_robot = 0.0;
+  // Getting backward lookahead point.
   for (int i = robot_i - 1; i >= 0; i--)
   {
     length_from_robot += (local_path.nodes_[i].position_ - local_path.nodes_[i + 1].position_).norm();
@@ -1157,6 +1288,10 @@ bool SensorCoveragePlanner3D::GetLookAheadPoint(const exploration_path_ns::Explo
   return true;
 }
 
+/**
+ * Publishes either the home waypoint (if exploration has been finished, robot is near home and Rush Home parameter is 
+ * set), or the lookahead point.
+ */
 void SensorCoveragePlanner3D::PublishWaypoint()
 {
   geometry_msgs::PointStamped waypoint;
@@ -1185,6 +1320,9 @@ void SensorCoveragePlanner3D::PublishWaypoint()
   misc_utils_ns::Publish<geometry_msgs::PointStamped>(waypoint_pub_, waypoint, kWorldFrameID);
 }
 
+/**
+ * Publishes current runtime of each timed module.
+ */
 void SensorCoveragePlanner3D::PublishRuntime()
 {
   local_viewpoint_sampling_runtime_ = pd_.local_coverage_planner_->GetViewPointSamplingRuntime() / 1000;
@@ -1215,12 +1353,20 @@ void SensorCoveragePlanner3D::PublishRuntime()
   runtime_pub_.publish(runtime_msg);
 }
 
+/**
+ * Checks distance of robot from home position.
+ * 
+ * @return distance of robot from home position.
+ */
 double SensorCoveragePlanner3D::GetRobotToHomeDistance()
 {
   Eigen::Vector3d robot_position(pd_.robot_position_.x, pd_.robot_position_.y, pd_.robot_position_.z);
   return (robot_position - pd_.initial_position_).norm();
 }
 
+/**
+ * Reads exploration finished status and publishes it.
+ */
 void SensorCoveragePlanner3D::PublishExplorationState()
 {
   std_msgs::Bool exploration_finished_msg;
@@ -1228,6 +1374,12 @@ void SensorCoveragePlanner3D::PublishExplorationState()
   exploration_finish_pub_.publish(exploration_finished_msg);
 }
 
+/**
+ * Prints current exploration status.
+ * 
+ * @param status exploration status.
+ * @param clear_last_line status indicating if previous line has to be cleared.
+ */
 void SensorCoveragePlanner3D::PrintExplorationStatus(std::string status, bool clear_last_line)
 {
   if (clear_last_line)
@@ -1292,8 +1444,12 @@ void SensorCoveragePlanner3D::CountDirectionChange()
 /**
  * Contains main logic of TARE planner. Executes every second.
  * 
+ * If robot is not initialized, will send an initial waypoint to get robot to start exploring. 
  * 
- * 
+ * When keypose cloud update is active (every 5 registered scans), does the bulk of the work. Updates keypose graph and 
+ * viewpoint coverage and covered areas for all viewpoints. Does global and local planning using TSP to obtain a global 
+ * and local path. Concatenates global and local path accordingly and gets next lookahead point. Also publishes 
+ * next waypoint, main output of the TARE planner, built from start position, robot position, and lookahead point.
  */
 void SensorCoveragePlanner3D::execute(const ros::TimerEvent&)
 {
