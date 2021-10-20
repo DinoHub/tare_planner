@@ -61,19 +61,33 @@ public:
   void ResetCoverage();
   void Reset();
 
+  /**
+   * Sets collision status of viewpoint.
+   * 
+   * @param in_collision collision status of viewpoint.
+   */
   void SetInCollision(bool in_collision)
   {
     in_collision_ = in_collision;
   }
+  /**
+   * Returns collision status of viewpoint.
+   */
   bool InCollision() const
   {
     return in_collision_;
   }
-
+  /**
+   * Sets in line of sight status of viewpoint.
+   */
   void SetInLineOfSight(bool in_line_of_sight)
   {
     in_line_of_sight_ = in_line_of_sight;
   }
+  /**
+   * Returns in line of sight status of viewpoint.
+   * @return status indicating if viewpoint is in line of sight.
+   */
   bool InLineOfSight() const
   {
     return in_line_of_sight_;
@@ -214,6 +228,9 @@ public:
   {
     return collision_frame_count_;
   }
+  /**
+   * Increments collision frame count within this viewpoint.
+   */
   void AddCollisionFrame()
   {
     collision_frame_count_++;

@@ -13,6 +13,13 @@
 
 namespace viewpoint_ns
 {
+/**
+ * Default constructor for viewpoints.
+ * 
+ * @param x x value for LiDAR model.
+ * @param y y value for LiDAR model.
+ * @param z z value for LiDAR model.
+ */
 ViewPoint::ViewPoint(double x, double y, double z)
   : lidar_model_(x, y, z)
   , in_collision_(false)
@@ -30,10 +37,18 @@ ViewPoint::ViewPoint(double x, double y, double z)
 {
 }
 
+/**
+ * Calls default constructor with point information extrapolated into default constructor arguments.
+ * 
+ * @param position geometry_msg containing point (x, y, z) information.
+ */
 ViewPoint::ViewPoint(const geometry_msgs::Point& position) : ViewPoint(position.x, position.y, position.z)
 {
 }
 
+/**
+ * Reset everything.
+ */
 void ViewPoint::Reset()
 {
   in_collision_ = false;
@@ -53,6 +68,9 @@ void ViewPoint::Reset()
   terrain_height_ = 0.0;
 }
 
+/**
+ * Only reset coverage on the LiDAR model, and remove all covered (frontier) point lists.
+ */
 void ViewPoint::ResetCoverage()
 {
   lidar_model_.ResetCoverage();

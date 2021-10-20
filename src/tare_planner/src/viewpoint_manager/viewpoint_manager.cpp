@@ -12,6 +12,12 @@
 
 namespace viewpoint_manager_ns
 {
+/**
+ * Reads parameters from ROS parameter server.
+ * 
+ * @param nh main ROS node's handle.
+ * @return success status for reading parameters.
+ */
 bool ViewPointManagerParameter::ReadParameters(ros::NodeHandle& nh)
 {
   kUseFrontier = misc_utils_ns::getParam<bool>(nh, "kUseFrontier", false);
@@ -70,6 +76,17 @@ bool ViewPointManagerParameter::ReadParameters(ros::NodeHandle& nh)
   return true;
 }
 
+/**
+ * Initializes KdTree and point cloud for viewpoint candidates and viewpoints in collision. Initializes a rolling grid. 
+ * Sets origin to zero. Initializes a vector of viewpoints and graph index map according to the number of viewpoints. 
+ * Initialize empty viewpoint with LiDAR model at (0,0,0) within each grid. 
+ * 
+ * //TODO: some functions
+ * 
+ * Sets local planning horizon size accortding to viewpoint number and resolution.
+ * 
+ * @param nh main ROS node's handle.
+ */
 ViewPointManager::ViewPointManager(ros::NodeHandle& nh) : initialized_(false)
 {
   vp_.ReadParameters(nh);
@@ -113,11 +130,18 @@ ViewPointManager::ViewPointManager(ros::NodeHandle& nh) : initialized_(false)
   }
 }
 
+/**
+ * Called at initialization to get connected neighbors and their distances to each viewpoint.
+ * 
+ * Resizes vector of connected neighbor indices and connected neighbor distance to number of viewpoints. Iterates 
+ * through all viewpoints and populates connected neighbor indices and distance with neighbors.
+ */
 void ViewPointManager::ComputeConnectedNeighborIndices()
 {
   connected_neighbor_indices_.resize(vp_.kViewPointNumber);
   connected_neighbor_dist_.resize(vp_.kViewPointNumber);
 
+  // Creating a bunch of neighbors based on different permutations from -1 to 1 around x, y, z.
   std::vector<Eigen::Vector3i> idx_addon;
   for (int x = -1; x <= 1; x++)
   {
@@ -125,6 +149,7 @@ void ViewPointManager::ComputeConnectedNeighborIndices()
     {
       for (int z = -1; z <= 1; z++)
       {
+        // 0, 0, 0 would be useless to add.
         if (x == 0 && y == 0 && z == 0)
           continue;
         idx_addon.push_back(Eigen::Vector3i(x, y, z));
@@ -132,6 +157,7 @@ void ViewPointManager::ComputeConnectedNeighborIndices()
     }
   }
 
+  // Iterate through all viewpoints
   for (int x = 0; x < vp_.kNumber.x(); x++)
   {
     for (int y = 0; y < vp_.kNumber.y(); y++)
@@ -140,6 +166,7 @@ void ViewPointManager::ComputeConnectedNeighborIndices()
       {
         Eigen::Vector3i sub(x, y, z);
         int ind = grid_->Sub2Ind(sub);
+        // Create neighbors and populate connected neighbors indices and distance. 
         for (int i = 0; i < idx_addon.size(); i++)
         {
           Eigen::Vector3i neighbor_sub = sub + idx_addon[i];
@@ -157,6 +184,13 @@ void ViewPointManager::ComputeConnectedNeighborIndices()
   }
 }
 
+/**
+ * Called at initialization to compute neighbors in range for each neighbor.
+ * 
+ * Pushes all viewpoints into cloud. Initializes vector containing indices of neighbors that are in range. Does a 
+ * radius search on the KD Tree for indices that are within range, and populates in range neighbor indices vector.
+ * 
+ */
 void ViewPointManager::ComputeInRangeNeighborIndices()
 {
   pcl::PointCloud<pcl::PointXYZ>::Ptr cloud = pcl::PointCloud<pcl::PointXYZ>::Ptr(new pcl::PointCloud<pcl::PointXYZ>);
@@ -187,6 +221,14 @@ void ViewPointManager::ComputeInRangeNeighborIndices()
   }
 }
 
+/**
+ * Called at initialization to initialize and populate the collision grid, as well as viewpoint cloud.
+ * 
+ * Initialize collision grid's origin, and creates a collision grid. Populates viewpoint cloud. Iterates through 
+ * collision grid and searches for query points within the viewpoint cloud. Pushes points near query point into 
+ * collision grid cell.
+ * 
+ */
 void ViewPointManager::GetCollisionCorrespondence()
 {
   misc_utils_ns::Timer timer("get collision grid correspondence");
@@ -259,9 +301,11 @@ void ViewPointManager::GetCollisionCorrespondence()
 }
 
 /**
- * Shifts origin_ (hence also local planning horizon) based on robot displacement from previous origin. Generates a grid of viewpoint positions from this origin. 
+ * Shifts origin_ (hence also local planning horizon) based on robot displacement from previous origin. Generates a 
+ * grid of viewpoint positions from this origin. 
  * 
- * Theoreotically, shifts when robot displacement is >= kRolloverStepsize. However current implementation is kRolloverStepsize/2.
+ * Theoreotically, shifts when robot displacement is >= kRolloverStepsize. However current implementation is 
+ * kRolloverStepsize/2.
  * 
  * @param robot_position current ^x,<y,z of the robot with respect to starting position.
  * @param kNumber Number of grids in each axis. E.g. 80 by 80 by 40
@@ -373,11 +417,13 @@ void ViewPointManager::UpdateOrigin()
 }
 
 /**
- * Assert in range, Returns either viewpoint_ind (untouched argument) or array_ind depending on use_array_ind.
- * TODO: InRange check already implicitely done in GetArrayInd
- * @param viewpoint_ind original viewpoint_index.
- * @param use_array_ind boolean indicating if we should return array_ind or viewpoint_ind.
- * @return viewpoint_ind or array_ind.
+ * Returns either viewpoint index or array index depending on use array index - if false, viewpoint index is already 
+ * in array index form; if true, viewpoint index has to be converted to array index.
+ * 
+ * TODO: InRange check already implicitly done in GetArrayInd
+ * @param viewpoint_ind original viewpoint index.
+ * @param use_array_ind boolean indicating if we should return array index or viewpoint index.
+ * @return viewpoint index or array index.
  */
 int ViewPointManager::GetViewPointArrayInd(int viewpoint_ind, bool use_array_ind) const
 {
@@ -385,19 +431,25 @@ int ViewPointManager::GetViewPointArrayInd(int viewpoint_ind, bool use_array_ind
   return (use_array_ind ? viewpoint_ind : grid_->GetArrayInd(viewpoint_ind));
 }
 
+/**
+ * Gets viewpoint index given a viewpoint array index.
+ * 
+ * @param viewpoint_array_ind viewpoint array index.
+ * @return viewpoint index.
+ */
 int ViewPointManager::GetViewPointInd(int viewpoint_array_ind) const
 {
   return grid_->GetInd(viewpoint_array_ind);
 }
 
 /**
- * Given a position, return subscript of grid at that position. origin is at [0,0] 
+ * Given a position, return subspace of grid at that position. origin is at [0,0] 
  * 
  * Function achieves this by getting the displacement of the position from the origin and dividing by resolution. 
- * Sets subscript to -1 where difference is negative.
+ * Sets subspace to -1 where difference is negative.
  * 
  * @param position query position.
- * @return Vector of subscript of grid, with dimensions set to -1 if invalid.
+ * @return Vector of subspace of grid, with dimensions set to -1 if invalid.
  */
 Eigen::Vector3i ViewPointManager::GetViewPointSub(Eigen::Vector3d position)
 {
@@ -411,7 +463,7 @@ Eigen::Vector3i ViewPointManager::GetViewPointSub(Eigen::Vector3d position)
 }
 
 /**
- * Gets subscripts of grid at the position, checks if it is in range of the grid, and returns the index of the grid if it is.
+ * Gets subspace of grid at the position, checks if it is in range of the grid, and returns the index of the grid if it is.
  * 
  * @param position query position.
  * @return index of grid, if valid. Else -1.
@@ -429,6 +481,14 @@ int ViewPointManager::GetViewPointInd(Eigen::Vector3d position)
   }
 }
 
+/**
+ * Iterates through viewpoint candidates. Sets visited viewpoint intensity to -1.0, and unvisted viewpoint intensity 
+ * to the number of points the viewpoint covers. Adds small noise to the intensity based on viewpoint number,  
+ * presumably to prevent viewpoints of similar intensity to look the same in the visualization cloud. Push viewpoints 
+ * with updated intensity into the output visualization cloud.
+ * 
+ * @param[out] vis_cloud visualization cloud.
+ */
 void ViewPointManager::GetVisualizationCloud(pcl::PointCloud<pcl::PointXYZI>::Ptr& vis_cloud)
 {
   vis_cloud->clear();
@@ -463,9 +523,19 @@ void ViewPointManager::GetVisualizationCloud(pcl::PointCloud<pcl::PointXYZI>::Pt
   }
 }
 
+/**
+ * Updates collision frame count within each viewpoint and collision point counts for each collision grid.
+ * 
+ * Goes through collision cloud and updates collision point count. 
+ * If any collision grid is found to have more collision points than a certain threshold, and the point is valid within 
+ * a z range, set all viewpoints within that collision grid to be in collision and reset their collision frame counts.
+ * 
+ * @param collision_cloud collision cloud to iterate through and check for collision.
+ */
 void ViewPointManager::CheckViewPointCollisionWithCollisionGrid(
     const pcl::PointCloud<pcl::PointXYZI>::Ptr& collision_cloud)
 {
+  // Increment viewpoint collision frame count if viewpoint is in collision.
   for (int i = 0; i < viewpoints_.size(); i++)
   {
     if (ViewPointInCollision(i, true))
@@ -473,6 +543,7 @@ void ViewPointManager::CheckViewPointCollisionWithCollisionGrid(
       AddViewPointCollisionFrameCount(i, true);
     }
   }
+  // Resets collision_point_count and sets collision grid origin.
   std::fill(collision_point_count_.begin(), collision_point_count_.end(), 0);
   collision_grid_origin_ = origin_ - Eigen::Vector3d::Ones() * vp_.kViewPointCollisionMargin;
   collision_grid_->SetOrigin(collision_grid_origin_);
@@ -483,6 +554,8 @@ void ViewPointManager::CheckViewPointCollisionWithCollisionGrid(
     {
       int collision_grid_ind = collision_grid_->Sub2Ind(collision_grid_sub);
       collision_point_count_[collision_grid_ind]++;
+      // If a particular collision grid's collision points exceed a threshold, set valid viewpoints within the grid to 
+      // be in collision, and reset collision frame counts.
       if (collision_point_count_[collision_grid_ind] >= vp_.kCollisionPointThr)
       {
         std::vector<int> collision_viewpoint_indices = collision_grid_->GetCellValue(collision_grid_ind);
@@ -503,6 +576,13 @@ void ViewPointManager::CheckViewPointCollisionWithCollisionGrid(
   }
 }
 
+/**
+ * Checks if current viewpoint is valid, and that the height doesn't exceed viewpoint height requirements. Returns 
+ * collision status of viewpoint.
+ * 
+ * @param position position of viewpoint.
+ * @return collision status of viewpoint.
+ */
 bool ViewPointManager::InCollision(const Eigen::Vector3d& position)
 {
   int viewpoint_ind = GetViewPointInd(position);
@@ -518,6 +598,12 @@ bool ViewPointManager::InCollision(const Eigen::Vector3d& position)
   return false;
 }
 
+/**
+ * Get viewpoint index from position, and check if viewpoint is within current frame line of sight.
+ * 
+ * @param position position of viewpoint.
+ * @return boolean indicating if viewpoint is within current frame line of sight.
+ */
 bool ViewPointManager::InCurrentFrameLineOfSight(const Eigen::Vector3d& position)
 {
   int viewpoint_ind = GetViewPointInd(position);
@@ -532,6 +618,10 @@ bool ViewPointManager::InCurrentFrameLineOfSight(const Eigen::Vector3d& position
   return false;
 }
 
+/**
+ * Checks if viewpoints are inside the viewpoint boundary polygon or no go boundary polygon. If they are, set viewpoint  
+ * to be in collision. 
+ */
 void ViewPointManager::CheckViewPointBoundaryCollision()
 {
   // Check for the polygon boundary and nogo zones
@@ -556,12 +646,24 @@ void ViewPointManager::CheckViewPointBoundaryCollision()
   }
 }
 
+/**
+ * Calls functions to check if viewpoints are in collision, or are within viewpoint boundary or no go boundary.
+ * 
+ * @param collision_cloud for checking collision.
+ */
 void ViewPointManager::CheckViewPointCollision(const pcl::PointCloud<pcl::PointXYZI>::Ptr& collision_cloud)
 {
   CheckViewPointCollisionWithCollisionGrid(collision_cloud);
   CheckViewPointBoundaryCollision();
 }
 
+/**
+ * Adds points from terrain cloud that have a greater intensity than the collision threshold into the collision cloud, 
+ * then calls function to check which viewpoints are colliding.
+ * 
+ * @param terrain_cloud cloud containing terrain data.
+ * @param collision_threshold threshold to consider terrain point in collision.
+ */
 void ViewPointManager::CheckViewPointCollisionWithTerrain(const pcl::PointCloud<pcl::PointXYZI>::Ptr& terrain_cloud,
                                                           double collision_threshold)
 {
@@ -576,17 +678,31 @@ void ViewPointManager::CheckViewPointCollisionWithTerrain(const pcl::PointCloud<
   CheckViewPointCollisionWithCollisionGrid(collision_cloud);
 }
 
+/**
+ * Raycasts cells from starting position to ending position (viewpoint subspace). Iterates through ray cast cells from 
+ * viewpoint to starting position, and updates viewpoints within each raycast cell's collision status and in line of 
+ * sight status. Iterates through ray cast cells from starting position to viewpoint position and checks for occlusion 
+ * as well, updating viewpoints that have yet to be occluded as within line of sight. 
+ * 
+ * @param start_sub starting position.
+ * @param end_sub viewpoint subspace.
+ * @param max_sub maximum subspace for raycasting.
+ * @param min_sub minimum subspace for raycasting.
+ */
 void ViewPointManager::CheckViewPointLineOfSightHelper(const Eigen::Vector3i& start_sub, const Eigen::Vector3i& end_sub,
                                                        const Eigen::Vector3i& max_sub, const Eigen::Vector3i& min_sub)
 {
   if (end_sub == start_sub)
     return;
   int viewpoint_ind = grid_->Sub2Ind(end_sub);
+  // TODO: viewpoint_position unused.
   geometry_msgs::Point viewpoint_position = GetViewPointPosition(viewpoint_ind);
   std::vector<Eigen::Vector3i> ray_cast_cells;
   misc_utils_ns::RayCast(start_sub, end_sub, max_sub, min_sub, ray_cast_cells);
   if (ray_cast_cells.size() > 1)
   {
+    // Checks ray cast cells to the nearest obstacle, updating viewpoint in line of sight for cells and setting 
+    // collision status to false for cells that are not in collision.
     if (vp_.kLineOfSightStopAtNearestObstacle)
     {
       bool occlude = false;
@@ -614,6 +730,7 @@ void ViewPointManager::CheckViewPointLineOfSightHelper(const Eigen::Vector3i& st
     {
       bool hit_obstacle = false;
       bool in_line_of_sight = false;
+      // Goes through ray cast cells from ending subspace to starting subspace to check if cells hit obstacle.
       for (int i = ray_cast_cells.size() - 1; i >= 0; i--)
       {
         int viewpoint_ind = grid_->Sub2Ind(ray_cast_cells[i]);
@@ -621,13 +738,15 @@ void ViewPointManager::CheckViewPointLineOfSightHelper(const Eigen::Vector3i& st
         {
           hit_obstacle = true;
         }
+        // For all subsequent cells after hitting the obstacle, set in line of sight to true.
         if (hit_obstacle && !ViewPointInCollision(viewpoint_ind))
         {
           in_line_of_sight = true;
         }
+        // For viewpoints in collision after hitting obstacle, if collision frame count exceeds threshold, set in LOS
+        // to true and viewpoint collision to false.
         if (hit_obstacle && ViewPointInCollision(viewpoint_ind) &&
             GetViewPointCollisionFrameCount(viewpoint_ind) > vp_.kCollisionFrameCountMax)
-
         {
           in_line_of_sight = true;
           if (vp_.kCheckDynamicObstacleCollision)
@@ -640,6 +759,7 @@ void ViewPointManager::CheckViewPointLineOfSightHelper(const Eigen::Vector3i& st
           SetViewPointInLineOfSight(viewpoint_ind, true);
         }
       }
+      // If none of the ray cast cells hit an obstacle, set their corresponding viewpoints to be within line of sight.
       if (!hit_obstacle)
       {
         for (int i = ray_cast_cells.size() - 1; i >= 0; i--)
@@ -660,6 +780,7 @@ void ViewPointManager::CheckViewPointLineOfSightHelper(const Eigen::Vector3i& st
         occlude = true;
         break;
       }
+      // Set all ray cast cells before first occlusion to be in current frame line of sight.
       if (!occlude)
       {
         SetViewPointInCurrentFrameLineOfSight(viewpoint_ind, true);
@@ -668,11 +789,15 @@ void ViewPointManager::CheckViewPointLineOfSightHelper(const Eigen::Vector3i& st
   }
 }
 
+/**
+ * Updates line of sight for first and last viewpoints of each dimension.
+ */
 void ViewPointManager::CheckViewPointLineOfSight()
 {
   if (!initialized_)
     return;
 
+  // Initializing all viewpoints to NOT be in current frame line of sight.
   for (int i = 0; i < viewpoints_.size(); i++)
   {
     SetViewPointInCurrentFrameLineOfSight(i, false, true);
@@ -689,10 +814,13 @@ void ViewPointManager::CheckViewPointLineOfSight()
   Eigen::Vector3i max_sub(vp_.kNumber.x() - 1, vp_.kNumber.y() - 1, vp_.kNumber.z() - 1);
   Eigen::Vector3i min_sub(0, 0, 0);
 
+  // Create indices array containing only first and last viewpoints in each dimension.
   int x_indices[2] = { 0, vp_.kNumber.x() - 1 };
   int y_indices[2] = { 0, vp_.kNumber.y() - 1 };
   int z_indices[2] = { 0, vp_.kNumber.z() - 1 };
 
+  // Only first and last x viewpoint, but all viewpoints for y and z.
+  // Checks if there is line of sight from robot position to first and last x viewpoints across all dimensions.
   for (int xi = 0; xi < 2; xi++)
   {
     for (int y = 0; y < vp_.kNumber.y(); y++)
@@ -711,6 +839,8 @@ void ViewPointManager::CheckViewPointLineOfSight()
     }
   }
 
+  // Only first and last y viewpoint, but all viewpoints for x and z.
+  // Checks if there is line of sight from robot position to first and last y viewpoints across all dimensions.
   for (int x = 0; x < vp_.kNumber.x(); x++)
   {
     for (int yi = 0; yi < 2; yi++)
@@ -729,6 +859,8 @@ void ViewPointManager::CheckViewPointLineOfSight()
     }
   }
 
+  // Only first and last z viewpoint, but all viewpoints for x and y.
+  // Checks if there is line of sight from robot position to first and last z viewpoints across all dimensions.
   for (int x = 0; x < vp_.kNumber.x(); x++)
   {
     for (int y = 0; y < vp_.kNumber.y(); y++)
@@ -748,6 +880,10 @@ void ViewPointManager::CheckViewPointLineOfSight()
   }
 }
 
+/**
+ * Iterates through all viewpoints, and check if viewpoints are in robot field of view. Set line of sight to false if 
+ * not within field of view. Sets viewpoint at robot position to be within field of view.
+ */
 void ViewPointManager::CheckViewPointInFOV()
 {
   if (!initialized_)
@@ -766,6 +902,14 @@ void ViewPointManager::CheckViewPointInFOV()
   SetViewPointInLineOfSight(robot_viewpoint_ind, true);
 }
 
+/**
+ * Checks that the z-difference between point position and viewpoint position does not exceed the vertical FOV ratio 
+ * multiplied by the xy-difference.
+ * 
+ * @param point_position position of point.
+ * @param viewpoint_position position of viewpoint to check against.
+ * @return true if z-diff does not exceed xy-diff * vertical FOV ratio.
+ */
 bool ViewPointManager::InFOV(const Eigen::Vector3d& point_position, const Eigen::Vector3d& viewpoint_position)
 {
   Eigen::Vector3d diff = point_position - viewpoint_position;
@@ -781,6 +925,14 @@ bool ViewPointManager::InFOV(const Eigen::Vector3d& point_position, const Eigen:
   }
 }
 
+/**
+ * Checks that the z-difference between point position and viewpoint position does not exceed the vertical FOV ratio 
+ * multiplied by the xy-difference. Also checks that xy diff is within SensorRange parameter.
+ * 
+ * @param point_position position of point.
+ * @param viewpoint_position position of viewpoint to check against.
+ * @return true if z-diff does not exceed xy diff and xy diff is within Sensor Range parameter.
+ */
 bool ViewPointManager::InFOVAndRange(const Eigen::Vector3d& point_position, const Eigen::Vector3d& viewpoint_position)
 {
   Eigen::Vector3d diff = point_position - viewpoint_position;
@@ -804,11 +956,21 @@ bool ViewPointManager::InFOVAndRange(const Eigen::Vector3d& point_position, cons
   }
 }
 
+/**
+ * Checks if query position is within FOV of robot position.
+ * 
+ * @param position query position.
+ */
 bool ViewPointManager::InRobotFOV(const Eigen::Vector3d& position)
 {
   return InFOV(position, robot_position_);
 }
 
+/**
+ * Checks if viewpoint at current robot position is in collision. If it is, take next closest viewpoint that is 
+ * collision free. Initialize all viewpoints to not be connected first. Does a DFS through all viewpoint and their 
+ * neighbors to find connected viewpoints to viewpoint at robot position, updating viewpoint connectivity accordingly.
+ */
 void ViewPointManager::CheckViewPointConnectivity()
 {
   if (!initialized_)
@@ -817,6 +979,7 @@ void ViewPointManager::CheckViewPointConnectivity()
   MY_ASSERT(grid_->InRange(robot_sub));
   int robot_ind = grid_->Sub2Ind(robot_sub);
   int robot_array_ind = grid_->GetArrayInd(robot_sub);
+  // If viewpoint at robot's current position is in collision, look for the next closest without collision.
   if (ViewPointInCollision(robot_ind))
   {
     // std::cout << "ViewPointManager::CheckViewPointConnectivity: robot in collision" << std::endl;
@@ -847,6 +1010,7 @@ void ViewPointManager::CheckViewPointConnectivity()
       return;
     }
   }
+  // Initializes all viewpoints to be unconnected first.
   for (auto& viewpoint : viewpoints_)
   {
     viewpoint.SetConnected(false);
@@ -857,6 +1021,7 @@ void ViewPointManager::CheckViewPointConnectivity()
   std::list<int> queue;
   queue.push_back(robot_ind);
   int connected_viewpoint_count = 1;
+  // DFS to check if viewpoint is able to be connected. If it is, set it to be connected and push back neighboring indices.
   while (!queue.empty())
   {
     int cur_ind = queue.front();
@@ -884,7 +1049,10 @@ void ViewPointManager::CheckViewPointConnectivity()
 }
 
 /**
- * Updates the points in local horizon near each input point as visited in grid_
+ * Iterates through all position within input positions. For position within local horizon, set viewpoint visited to be 
+ * true, and set all neighbors of each point as visited.
+ * 
+ * @param positions input positions, presumably visited by robot.
  */
 void ViewPointManager::UpdateViewPointVisited(const std::vector<Eigen::Vector3d>& positions)
 {
@@ -906,12 +1074,19 @@ void ViewPointManager::UpdateViewPointVisited(const std::vector<Eigen::Vector3d>
       {
         MY_ASSERT(grid_->InRange(neighbor_viewpoint_ind));
         SetViewPointVisited(neighbor_viewpoint_ind, true);
+        // TODO: neighbor_array_ind unused.
         int neighbor_array_ind = grid_->GetArrayInd(neighbor_viewpoint_ind);
       }
     }
   }
 }
 
+/**
+ * Iterates through all viewpoints, and uses read-only grid world to check if viewpoint status is COVERED_BY_OTHERS. If 
+ * so, set viewpoint visited to be true.
+ * 
+ * @param grid_world read-only grid world used to check if viewpoint has been visited.
+ */
 void ViewPointManager::UpdateViewPointVisited(std::unique_ptr<grid_world_ns::GridWorld> const& grid_world)
 {
   for (int i = 0; i < viewpoints_.size(); i++)
@@ -929,6 +1104,18 @@ void ViewPointManager::UpdateViewPointVisited(std::unique_ptr<grid_world_ns::Gri
   }
 }
 
+/**
+ * Gets closest viewpoint to current robot position. If there is no terrain cloud information OR robot viewpoint height 
+ * is higher than terrin change threshold, manually sets height of robot viewpoint, updating robot viewpoint and its 
+ * neighbors to the new computed height.
+ * 
+ * Iterates through terrain cloud and does a similar update for viewpoints corresponding to terrain cloud points. 
+ * 
+ * Finally iterates through all viewpoints and set viewpoint height to be same as their neighbors.
+ * 
+ * @param terrain_cloud terrain cloud.
+ * @param terrain_height_threshold threshold to ignore points from terrain cloud.
+ */
 void ViewPointManager::SetViewPointHeightWithTerrain(const pcl::PointCloud<pcl::PointXYZI>::Ptr& terrain_cloud,
                                                      double terrain_height_threshold)
 {
@@ -1013,13 +1200,21 @@ void ViewPointManager::SetViewPointHeightWithTerrain(const pcl::PointCloud<pcl::
   }
 }
 
-// Reset viewpoint, set attributes to default
+/**
+ * Resets viewpoint, sets attributes to default.
+ * 
+ * @param viewpoint_ind
+ * @param use_array_ind
+ */
 void ViewPointManager::ResetViewPoint(int viewpoint_ind, bool use_array_ind)
 {
   int array_ind = GetViewPointArrayInd(viewpoint_ind, use_array_ind);
   viewpoints_[array_ind].Reset();
 }
 
+/**
+ * Resets coverage of all viewpoints.
+ */
 void ViewPointManager::ResetViewPointCoverage()
 {
   for (auto& viewpoint : viewpoints_)
@@ -1028,62 +1223,123 @@ void ViewPointManager::ResetViewPointCoverage()
   }
 }
 
-// Collision
+/**
+ * Gets viewpoint collision status.
+ * @param viewpoint_ind index of viewpoint.
+ * @param use_array_ind status indicating array index or regular index.
+ * @return viewpoint connected status.
+ */
 bool ViewPointManager::ViewPointInCollision(int viewpoint_ind, bool use_array_ind)
 {
   int array_ind = GetViewPointArrayInd(viewpoint_ind, use_array_ind);
   return viewpoints_[array_ind].InCollision();
 }
+/**
+ * Sets viewpoint collision status.
+ * @param viewpoint_ind index of viewpoint.
+ * @param in_collision viewpoint collision status.
+ * @param use_array_ind status indicating array index or regular index.
+ */
 void ViewPointManager::SetViewPointCollision(int viewpoint_ind, bool in_collision, bool use_array_ind)
 {
   int array_ind = GetViewPointArrayInd(viewpoint_ind, use_array_ind);
   viewpoints_[array_ind].SetInCollision(in_collision);
 }
-// Line of Sight
+/**
+ * Gets viewpoint in line of sight status.
+ * @param viewpoint_ind viewpoint.
+ * @param use_array_ind
+ * @return viewpoint in line of sight status.
+ */
 bool ViewPointManager::ViewPointInLineOfSight(int viewpoint_ind, bool use_array_ind)
 {
   int array_ind = GetViewPointArrayInd(viewpoint_ind, use_array_ind);
   return viewpoints_[array_ind].InLineOfSight();
 }
+/**
+ * Sets viewpoint in line of sight status.
+ * @param viewpoint_ind viewpoint.
+ * @param in_line_of_sight status indicating candidature.
+ * @param use_array_ind
+ */
 void ViewPointManager::SetViewPointInLineOfSight(int viewpoint_ind, bool in_line_of_sight, bool use_array_ind)
 {
   int array_ind = GetViewPointArrayInd(viewpoint_ind, use_array_ind);
   viewpoints_[array_ind].SetInLineOfSight(in_line_of_sight);
 }
-// Connectivity
+/**
+ * Gets viewpoint connected status.
+ * @param viewpoint_ind index of viewpoint.
+ * @param use_array_ind status indicating array index or regular index.
+ * @return viewpoint connected status.
+ */
 bool ViewPointManager::ViewPointConnected(int viewpoint_ind, bool use_array_ind)
 {
   int array_ind = GetViewPointArrayInd(viewpoint_ind, use_array_ind);
   return viewpoints_[array_ind].Connected();
 }
+/**
+ * Sets viewpoint connected status.
+ * @param viewpoint_ind index of viewpoint.
+ * @param connected viewpoint connected status.
+ * @param use_array_ind status indicating array index or regular index.
+ */
 void ViewPointManager::SetViewPointConnected(int viewpoint_ind, bool connected, bool use_array_ind)
 {
   int array_ind = GetViewPointArrayInd(viewpoint_ind, use_array_ind);
   viewpoints_[array_ind].SetConnected(connected);
 }
-// Visited
+/**
+ * Gets viewpoint visited status.
+ * @param viewpoint_ind index of viewpoint.
+ * @param use_array_ind status indicating array index or regular index.
+ * @return viewpoint visited status.
+ */
 bool ViewPointManager::ViewPointVisited(int viewpoint_ind, bool use_array_ind)
 {
   int array_ind = GetViewPointArrayInd(viewpoint_ind, use_array_ind);
   return viewpoints_[array_ind].Visited();
 }
+/**
+ * Sets viewpoint visited status.
+ * @param viewpoint_ind index of viewpoint.
+ * @param visited viewpoint visited status.
+ * @param use_array_ind status indicating array index or regular index.
+ */
 void ViewPointManager::SetViewPointVisited(int viewpoint_ind, bool visited, bool use_array_ind)
 {
   int array_ind = GetViewPointArrayInd(viewpoint_ind, use_array_ind);
   viewpoints_[array_ind].SetVisited(visited);
 }
-// Selected
+/**
+ * Gets viewpoint selected status.
+ * @param viewpoint_ind index of viewpoint.
+ * @param use_array_ind status indicating array index or regular index.
+ * @return viewpoint selected status.
+ */
 bool ViewPointManager::ViewPointSelected(int viewpoint_ind, bool use_array_ind)
 {
   int array_ind = GetViewPointArrayInd(viewpoint_ind, use_array_ind);
   return viewpoints_[array_ind].Selected();
 }
+/**
+ * Sets viewpoint to be selected.
+ * @param viewpoint_ind index of viewpoint.
+ * @param selected selected status of viewpoint.
+ * @param use_array_ind status indicating array index or regular index.
+ */
 void ViewPointManager::SetViewPointSelected(int viewpoint_ind, bool selected, bool use_array_ind)
 {
   int array_ind = GetViewPointArrayInd(viewpoint_ind, use_array_ind);
   viewpoints_[array_ind].SetSelected(selected);
 }
-// Candidacy
+/**
+ * Gets viewpoint candidature status. 
+ * 
+ * @param viewpoint_ind index of viewpoint.
+ * @param use_array_ind status indicating array index or regular index.
+ * @return viewpoint candidature status.
+ */
 bool ViewPointManager::IsViewPointCandidate(int viewpoint_ind, bool use_array_ind)
 {
   int array_ind = GetViewPointArrayInd(viewpoint_ind, use_array_ind);
@@ -1091,99 +1347,199 @@ bool ViewPointManager::IsViewPointCandidate(int viewpoint_ind, bool use_array_in
 }
 /**
  * Sets viewpoint candidate status.
- * @param viewpoint_ind viewpoint.
+ * @param viewpoint_ind index of viewpoint.
  * @param candidate status indicating candidature.
- * @param use_array_ind
+ * @param use_array_ind status indicating array index or regular index.
  */
 void ViewPointManager::SetViewPointCandidate(int viewpoint_ind, bool candidate, bool use_array_ind)
 {
   int array_ind = GetViewPointArrayInd(viewpoint_ind, use_array_ind);
   viewpoints_[array_ind].SetCandidate(candidate);
 }
-// Terrain Height
+/**
+ * Gets viewpoint terrain height status. 
+ * 
+ * @param viewpoint_ind index of viewpoint.
+ * @param use_array_ind status indicating array index or regular index.
+ * @return viewpoint terrain height status.
+ */
 bool ViewPointManager::ViewPointHasTerrainHeight(int viewpoint_ind, bool use_array_ind)
 {
   int array_ind = GetViewPointArrayInd(viewpoint_ind, use_array_ind);
   return viewpoints_[array_ind].HasTerrainHeight();
 }
+/**
+ * Sets viewpoint terrain height status for a given viewpoint.
+ * 
+ * @param viewpoint_ind index of viewpoint.
+ * @param has_terrain_height status indicating if viewpoint has terrain height.
+ * @param use_array_ind status indicating array index or regular index.
+ */
 void ViewPointManager::SetViewPointHasTerrainHeight(int viewpoint_ind, bool has_terrain_height, bool use_array_ind)
 {
   int array_ind = GetViewPointArrayInd(viewpoint_ind, use_array_ind);
   viewpoints_[array_ind].SetHasTerrainHeight(has_terrain_height);
 }
-// In exploring cell
+/**
+ * Gets viewpoint status for if it is in exploring cell.
+ * 
+ * @param viewpoint_ind index of viewpoint.
+ * @param use_array_ind status indicating array index or regular index.
+ */
 bool ViewPointManager::ViewPointInExploringCell(int viewpoint_ind, bool use_array_ind)
 {
   int array_ind = GetViewPointArrayInd(viewpoint_ind, use_array_ind);
   return viewpoints_[array_ind].InExploringCell();
 }
+/**
+ * Sets viewpoint status for if it is in exploring cell.
+ * 
+ * @param viewpoint_ind index of viewpoint.
+ * @param in_exploring_cell status indicating if viewpoint is in exploring cell.
+ * @param use_array_ind status indicating array index or regular index.
+ */
 void ViewPointManager::SetViewPointInExploringCell(int viewpoint_ind, bool in_exploring_cell, bool use_array_ind)
 {
   int array_ind = GetViewPointArrayInd(viewpoint_ind, use_array_ind);
   viewpoints_[array_ind].SetInExploringCell(in_exploring_cell);
 }
-// Height
+/**
+ * Gets viewpoint height.
+ * 
+ * @param viewpoint_ind index of viewpoint.
+ * @param use_array_ind status indicating array index or regular index.
+ */
 double ViewPointManager::GetViewPointHeight(int viewpoint_ind, bool use_array_ind)
 {
   int array_ind = GetViewPointArrayInd(viewpoint_ind, use_array_ind);
   return viewpoints_[array_ind].GetHeight();
 }
+/**
+ * Sets viewpoint height.
+ * 
+ * @param viewpoint_ind index of viewpoint.
+ * @param height viewpoint height.
+ * @param use_array_ind status indicating array index or regular index.
+ */
 void ViewPointManager::SetViewPointHeight(int viewpoint_ind, double height, bool use_array_ind)
 {
   int array_ind = GetViewPointArrayInd(viewpoint_ind, use_array_ind);
   viewpoints_[array_ind].SetHeight(height);
 }
-// In current frame line of sight
+
+/**
+ * Gets viewpoint in current frame line of sight status.
+ * 
+ * @param viewpoint_ind index of viewpoint.
+ * @param use_array_ind status indicating array index or regular index.
+ * @return status indicating if viewpoint is in current frame line of sight.
+ */
 bool ViewPointManager::ViewPointInCurrentFrameLineOfSight(int viewpoint_ind, bool use_array_ind)
 {
   int array_ind = GetViewPointArrayInd(viewpoint_ind, use_array_ind);
   return viewpoints_[array_ind].InCurrentFrameLineOfSight();
 }
+/**
+ * Sets viewpoint status for in current frame line of sight.
+ * 
+ * @param viewpoint_ind index of viewpoint.
+ * @param in_current_frame_line_of_sight status indicating if viewpoint is in current frame los.
+ * @param use_array_ind status indicating array index or regular index.
+ */
 void ViewPointManager::SetViewPointInCurrentFrameLineOfSight(int viewpoint_ind, bool in_current_frame_line_of_sight,
                                                              bool use_array_ind)
 {
   int array_ind = GetViewPointArrayInd(viewpoint_ind, use_array_ind);
   viewpoints_[array_ind].SetInCurrentFrameLineOfSight(in_current_frame_line_of_sight);
 }
-// Position
+/**
+ * Gets viewpoint's position.
+ * 
+ * @param viewpoint_ind index of viewpoint.
+ * @param use_array_ind status indicating array index or regular index.
+ * @return viewpoint position.
+ */
 geometry_msgs::Point ViewPointManager::GetViewPointPosition(int viewpoint_ind, bool use_array_ind)
 {
   int array_ind = GetViewPointArrayInd(viewpoint_ind, use_array_ind);
   return viewpoints_[array_ind].GetPosition();
 }
+/**
+ * Sets viewpoint's position.
+ * 
+ * @param viewpoint_ind index of viewpoint.
+ * @param position viewpoint position.
+ * @param use_array_ind status indicating array index or regular index.
+ */
 void ViewPointManager::SetViewPointPosition(int viewpoint_ind, geometry_msgs::Point position, bool use_array_ind)
 {
   int array_ind = GetViewPointArrayInd(viewpoint_ind, use_array_ind);
   viewpoints_[array_ind].SetPosition(position);
 }
-// Cell Ind
+/**
+ * Gets viewpoint's cell index.
+ * 
+ * @param viewpoint_ind index of viewpoint.
+ * @param use_array_ind status indicating array index or regular index.
+ * @return viewpoint cell index.
+ */
 int ViewPointManager::GetViewPointCellInd(int viewpoint_ind, bool use_array_ind)
 {
   int array_ind = GetViewPointArrayInd(viewpoint_ind, use_array_ind);
   return viewpoints_[array_ind].GetCellInd();
 }
+/**
+ * Sets viewpoint's cell index.
+ * 
+ * @param viewpoint_ind index of viewpoint.
+ * @param cell_ind viewpoint cell index to set.
+ * @param use_array_ind status indicating array index or regular index.
+ */
 void ViewPointManager::SetViewPointCellInd(int viewpoint_ind, int cell_ind, bool use_array_ind)
 {
   int array_ind = GetViewPointArrayInd(viewpoint_ind, use_array_ind);
   viewpoints_[array_ind].SetCellInd(cell_ind);
 }
-// Collision frame count
+/**
+ * Gets viewpoint's collision frame count.
+ * 
+ * @param viewpoint_ind index of viewpoint.
+ * @param use_array_ind status indicating array index or regular index.
+ * @return viewpoint collision frame count.
+ */
 int ViewPointManager::GetViewPointCollisionFrameCount(int viewpoint_ind, bool use_array_ind)
 {
   int array_ind = GetViewPointArrayInd(viewpoint_ind, use_array_ind);
   return viewpoints_[array_ind].GetCollisionFrameCount();
 }
+/**
+ * Increments viewpoint's collision frame counter.
+ * 
+ * @param viewpoint_ind index of viewpoint.
+ * @param use_array_ind status indicating array index or regular index.
+ */
 void ViewPointManager::AddViewPointCollisionFrameCount(int viewpoint_ind, bool use_array_ind)
 {
   int array_ind = GetViewPointArrayInd(viewpoint_ind, use_array_ind);
   viewpoints_[array_ind].AddCollisionFrame();
 }
+/**
+ * Resets viewpoint's collision frame counter.
+ * 
+ * @param viewpoint_ind index of viewpoint.
+ * @param use_array_ind status indicating array index or regular index.
+ */
 void ViewPointManager::ResetViewPointCollisionFrameCount(int viewpoint_ind, bool use_array_ind)
 {
   int array_ind = GetViewPointArrayInd(viewpoint_ind, use_array_ind);
   viewpoints_[array_ind].ResetCollisionFrameCount();
 }
-// Covered point list
+/**
+ * Resets viewpoint's covered point list.
+ * 
+ * @param viewpoint_ind index of viewpoint.
+ * @param use_array_ind status indicating array index or regular index.
+ */
 void ViewPointManager::ResetViewPointCoveredPointList(int viewpoint_ind, bool use_array_ind)
 {
   int array_ind = GetViewPointArrayInd(viewpoint_ind, use_array_ind);
@@ -1229,6 +1585,14 @@ const std::vector<int>& ViewPointManager::GetViewPointCoveredPointList(int viewp
   int array_ind = GetViewPointArrayInd(viewpoint_ind, use_array_ind);
   return viewpoints_[array_ind].GetCoveredPointList();
 }
+/**
+ * Gets the list of covered frontier points of the viewpoint being queried within this function. 
+ * Covered points refer to points in viewpoints not yet visited that do provide coverage.
+ * 
+ * @param viewpoint_ind index of query view point.
+ * @param use_array_ind viewpoint_ind is given in index or array index.
+ * @return covered point list of viewpoint being queried.
+ */
 const std::vector<int>& ViewPointManager::GetViewPointCoveredFrontierPointList(int viewpoint_ind,
                                                                                bool use_array_ind) const
 {
@@ -1247,6 +1611,12 @@ int ViewPointManager::GetViewPointCoveredPointNum(int viewpoint_ind, bool use_ar
   return viewpoints_[array_ind].GetCoveredPointNum();
 }
 
+/**
+ * Getter for getting viewpoint's list of covered frontier points.
+ * 
+ * @param viewpoint_ind input viewpoint
+ * @param use_array_ind viewpoint_ind is given in index or array index.
+ */
 int ViewPointManager::GetViewPointCoveredFrontierPointNum(int viewpoint_ind, bool use_array_ind)
 {
   int array_ind = GetViewPointArrayInd(viewpoint_ind, use_array_ind);
@@ -1302,6 +1672,13 @@ int ViewPointManager::GetViewPointCoveredFrontierPointNum(const std::vector<bool
   return covered_frontier_point_num;
 }
 
+/**
+ * Iterates through list of covered points for a viewpoint, and sets point list to true at covered point indices.
+ * 
+ * @param[out] point_list boolean list that is true at covered points the viewpoint covers.
+ * @param viewpoint_ind index of viewpoint.
+ * @param use_array_ind status indicating array index or regular index.
+ */
 void ViewPointManager::UpdateViewPointCoveredPoint(std::vector<bool>& point_list, int viewpoint_index,
                                                    bool use_array_ind)
 {
@@ -1311,6 +1688,14 @@ void ViewPointManager::UpdateViewPointCoveredPoint(std::vector<bool>& point_list
     point_list[point_ind] = true;
   }
 }
+/**
+ * Iterates through list of covered frontier points for a viewpoint, and sets point list to true at covered point 
+ * indices.
+ * 
+ * @param[out] point_list boolean list that is true at covered points the viewpoint covers.
+ * @param viewpoint_ind index of viewpoint.
+ * @param use_array_ind status indicating array index or regular index.
+ */
 void ViewPointManager::UpdateViewPointCoveredFrontierPoint(std::vector<bool>& frontier_point_list, int viewpoint_index,
                                                            bool use_array_ind)
 {
@@ -1422,6 +1807,14 @@ nav_msgs::Path ViewPointManager::GetViewPointShortestPath(int start_viewpoint_in
   return path;
 }
 
+/**
+ * Overloaded function that converts input parameters into indexes and conducts A* Search to get the shortest path from 
+ * starting viewpoint to target viewpoint.
+ * 
+ * @param start_position start position.
+ * @param target_position target position.
+ * @return path with poses of view point positions from start to target.
+ */
 nav_msgs::Path ViewPointManager::GetViewPointShortestPath(const Eigen::Vector3d& start_position,
                                                           const Eigen::Vector3d& target_position)
 {
@@ -1444,6 +1837,18 @@ nav_msgs::Path ViewPointManager::GetViewPointShortestPath(const Eigen::Vector3d&
   return GetViewPointShortestPath(start_viewpoint_ind, target_viewpoint_ind);
 }
 
+/**
+ * 
+ * 
+ * Start and target position must be within local planning horizon. Gets closest candidate viewpoint to both start and 
+ * target position. Uses A* to search for a path within max path length constraint. If a valid path is found, push into 
+ * output variable path.
+ * 
+ * @param start_position start position.
+ * @param target_position target position.
+ * @param max_path_length constraint for path length between start and target.
+ * @param[out] path output path, populated when a valid path is found with A* between the start and target position.
+ */
 bool ViewPointManager::GetViewPointShortestPathWithMaxLength(const Eigen::Vector3d& start_position,
                                                              const Eigen::Vector3d& target_position,
                                                              double max_path_length, nav_msgs::Path& path)
@@ -1606,6 +2011,11 @@ int ViewPointManager::GetNearestCandidateViewPointInd(const Eigen::Vector3d& pos
   }
 }
 
+/**
+ * Populates cloud with viewpoints in collision.
+ * 
+ * @param[out] cloud output point cloud populated with viewpoints in collision.
+ */
 void ViewPointManager::GetCollisionViewPointVisCloud(pcl::PointCloud<pcl::PointXYZI>::Ptr& cloud)
 {
   cloud->clear();
@@ -1615,11 +2025,21 @@ void ViewPointManager::GetCollisionViewPointVisCloud(pcl::PointCloud<pcl::PointX
   }
 }
 
+/**
+ * Checks if position is in local planning horizon. 
+ * 
+ * Gets index of closest viewpoint to position. If index of closest viewpoint is within z range, and viewpoint is 
+ * either a candidate, or in collision, viewpoint is considered to be within local planning horizon. 
+ * 
+ * @param position query position.
+ * @return true if poistion is within local planning horizon, false otherwise.
+ */
 bool ViewPointManager::InLocalPlanningHorizon(const Eigen::Vector3d& position)
 {
   int viewpoint_ind = GetViewPointInd(position);
   if (InRange(viewpoint_ind))
   {
+    // TODO: this doesn't seem to change, would it be better to calculate once during initialization?
     double max_z_diff = std::max(vp_.kResolution.x(), vp_.kResolution.y()) * 2;
     geometry_msgs::Point viewpoint_position = GetViewPointPosition(viewpoint_ind);
     if (std::abs(viewpoint_position.z - position.z()) < max_z_diff &&
