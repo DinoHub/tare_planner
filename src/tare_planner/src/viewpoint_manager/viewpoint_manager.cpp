@@ -387,8 +387,9 @@ bool ViewPointManager::UpdateRobotPosition(const Eigen::Vector3d& robot_position
   origin_.y() -= rollover_step.y() * vp_.kResolution.y();
   origin_.z() -= rollover_step.z() * vp_.kResolution.z();
 
-  // Same as the initialized_ part above to generate the grid of viewpoints from updated origin_. However, here we start with indices instead hence we need to transform it to get its x and y.
+  // Get the indices 
   grid_->GetUpdatedIndices(updated_viewpoint_indices_);
+  // Similar to initialized_ part above to generate the grid of viewpoints from updated origin_. However, here we start with indices instead hence we need to transform it to get its x and y.  
   for (const auto& ind : updated_viewpoint_indices_)
   {
     MY_ASSERT(grid_->InRange(ind));

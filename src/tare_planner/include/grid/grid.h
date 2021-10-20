@@ -66,6 +66,9 @@ public:
     origin_ = origin;
   }
 
+  /**
+   * Set private 3D vector resolution_. Also updates the inverse for each dimension in resolution_inv_
+   */
   void SetResolution(const Eigen::Vector3d& resolution)
   {
     resolution_ = resolution;
@@ -85,6 +88,9 @@ public:
     return resolution_inv_;
   }
 
+  /**
+   * Packs x y z into sub vector. Checks if sub is within grid size/local planning horizon defined by kNumber
+   */
   bool InRange(int x, int y, int z) const
   {
     return InRange(Eigen::Vector3i(x, y, z));
@@ -108,29 +114,39 @@ public:
   {
     return ind >= 0 && ind < cell_number_;
   }
-
+  /**
+   * Converts ind (1D int) to sub (3D vector). A reference table is pre-calculated
+   */
   Eigen::Vector3i Ind2Sub(int ind) const
   {
     // MY_ASSERT(InRange(ind));
     return subs_[ind];
   }
-
+  /**
+   * Converts sub (3D vector) to ind (1D int) according to a flattened grid
+   */
   int Sub2Ind(int x, int y, int z) const
   {
     return x + (y * size_.x()) + (z * size_.x() * size_.y());
   }
-
+  /**
+   * Converts sub (3D vector) to ind (1D int) according to a flattened grid
+   */
   int Sub2Ind(const Eigen::Vector3i& sub) const
   {
     // MY_ASSERT(InRange(sub));
     return Sub2Ind(sub.x(), sub.y(), sub.z());
   }
-
+  /**
+   * Converts sub (3D vector) to a position (3D vector) given by displacement from Grid's origin.
+   */
   Eigen::Vector3d Sub2Pos(int x, int y, int z) const
   {
     return Sub2Pos(Eigen::Vector3i(x, y, z));
   }
-
+  /**
+   * Converts sub (3D vector) to a position (3D vector) given by displacement from Grid's origin.
+   */
   Eigen::Vector3d Sub2Pos(const Eigen::Vector3i& sub) const
   {
     Eigen::Vector3d pos(0, 0, 0);
@@ -140,18 +156,24 @@ public:
     }
     return pos;
   }
-
+  /**
+   * Converts input index (1D int) into sub (3D vector) then to a position (3D vector) given by displacement from Grid's origin.
+   */
   Eigen::Vector3d Ind2Pos(int ind) const
   {
     // MY_ASSERT(InRange(ind));
     return Sub2Pos(Ind2Sub(ind));
   }
-
+  /**
+   * Converts input position from origin (3D vector) to sub (coordinates in the grid; 3D vector). If pos is on the wrong side of origin, returns -1 for that dimension. 
+   */
   Eigen::Vector3i Pos2Sub(double x, double y, double z) const
   {
     return Pos2Sub(Eigen::Vector3d(x, y, z));
   }
-
+  /**
+   * Converts input position from origin (3D vector) to sub (coordinates in the grid; 3D vector). If pos is on the wrong side of origin, returns -1 for that dimension. 
+   */
   Eigen::Vector3i Pos2Sub(const Eigen::Vector3d& pos) const
   {
     Eigen::Vector3i sub(0, 0, 0);
@@ -161,18 +183,22 @@ public:
     }
     return sub;
   }
-
+  /**
+   * Converts input position from origin (3D vector) to sub (coordinates in the grid; 3D vector)then to index (1D int)
+   */
   int Pos2Ind(const Eigen::Vector3d& pos) const
   {
     return Sub2Ind(Pos2Sub(pos));
   }
-
+  /**
+   * Returns value of cell at this sub by reference. Changing this also changes the cell value.
+   */
   _T& GetCell(int x, int y, int z)
   {
     return GetCell(Eigen::Vector3i(x, y, z));
   }
   /**
-   * Returns value of cell by reference. Changing this also changes the cell value.
+   * Returns value of cell at this sub by reference. Changing this also changes the cell value.
    */
   _T& GetCell(const Eigen::Vector3i& sub)
   {
@@ -180,45 +206,57 @@ public:
     int index = Sub2Ind(sub);
     return cells_[index];
   }
-
+  /**
+   * Returns value of cell at this index by reference. Changing this also changes the cell value.
+   */
   _T& GetCell(int index)
   {
     // MY_ASSERT(InRange(index));
     return cells_[index];
   }
   /**
-   * Returns value of cell. Use GetCell() instead to get a reference.
+   * Returns value of cell at this sub. Use GetCell() instead to get a reference.
    */
   _T GetCellValue(int x, int y, int z) const
   {
     int index = Sub2Ind(x, y, z);
     return cells_[index];
   }
-
+  /**
+   * Returns value of cell at this sub. Use GetCell() instead to get a reference.
+   */
   _T GetCellValue(const Eigen::Vector3i& sub) const
   {
     // MY_ASSERT(InRange(sub));
     return GetCellValue(sub.x(), sub.y(), sub.z());
   }
-
+  /**
+   * Returns value of cell at this index. Use GetCell() instead to get a reference.
+   */
   _T GetCellValue(int index) const
   {
     // MY_ASSERT(InRange(index));
     return cells_[index];
   }
-
+  /**
+   * Sets the cell value at this sub in private vector cells_.
+   */
   void SetCellValue(int x, int y, int z, _T value)
   {
     int index = Sub2Ind(x, y, z);
     cells_[index] = value;
   }
-
+  /**
+   * Sets the cell value at this sub in private vector cells_.
+   */
   void SetCellValue(const Eigen::Vector3i& sub, _T value)
   {
     // MY_ASSERT(InRange(sub));
     SetCellValue(sub.x(), sub.y(), sub.z(), value);
   }
-
+  /**
+   * Sets the cell value at this index in private vector cells_[index].
+   */
   void SetCellValue(int index, const _T& value)
   {
     // MY_ASSERT(InRange(index));
@@ -234,7 +272,9 @@ private:
   std::vector<Eigen::Vector3i> subs_;
   int cell_number_;
   int dimension_;
-
+  /**
+   * Converts index (1D int) to sub (coordinates in grid, 3D vector)
+   */
   Eigen::Vector3i ind2sub_(int ind) const
   {
     // MY_ASSERT(InRange(ind));

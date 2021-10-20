@@ -66,11 +66,17 @@ template <class CloudType>
 void KeyposeToMap(CloudType& cloud, const nav_msgs::Odometry::ConstPtr& keypose);
 double PointXYDist(const geometry_msgs::Point& pnt1, const geometry_msgs::Point& pnt2);
 double PointXYDist(const PCLPointType& pnt1, const PCLPointType& pnt2);
+/**
+ * Function to calculate and return the euclidean distance between the 2 input 2D points.
+ */
 template <class P1, class P2>
 double PointXYDist(const P1& pnt1, const P2& pnt2)
 {
   return sqrt(pow((pnt1.x - pnt2.x), 2) + pow((pnt1.y - pnt2.y), 2));
 }
+/**
+ * Function to calculate and return the euclidean distance between the 2 input 3D points.
+ */
 template <class P1, class P2>
 double PointXYZDist(const P1& pnt1, const P2& pnt2)
 {
@@ -98,6 +104,15 @@ double LineSegDistance3D(const geometry_msgs::Point& point, const geometry_msgs:
 double DistancePoint2DToPolygon(const geometry_msgs::Point& point, const geometry_msgs::Polygon& polygon);
 void LinInterpPoints(const Eigen::Vector3d& p1, const Eigen::Vector3d& p2, double resolution,
                      std::vector<Eigen::Vector3d>& interp_points);
+/**
+ * Function to create linearly interpolated points between 2 input pointcloud points. 
+ * TODO: point1 is added twice into the cloud. Start for loop at i=1 instead. 
+ * TODO: It may make even more sense to add a constant dist of 'resolution' instead of '(p2 - p1) / point_num' 
+ * @param p1 start point. this point will always be added to the cloud.
+ * @param p2 second point to calculate distance, this point will always be added to the cloud. 
+ * @param resolution distance between 2 interpolated points. if p2-p1 is less than this, then vector will only include those 2 points and no interpolation is done.
+ * @param interp_points reference to pointcloud which stores the interpolated points.
+ */
 template <class PCLPointType>
 void LinInterpPoints(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2, double resolution,
                      typename pcl::PointCloud<PCLPointType>::Ptr& cloud)
@@ -155,6 +170,9 @@ bool InRange(const std::vector<T>& list, int index)
 {
   return index >= 0 && index < list.size();
 }
+/**
+ * Function to get and return parameter (defined in config\.yaml). If not available, return default_val
+ */
 template <typename T>
 T getParam(ros::NodeHandle* nh, const std::string& name, const T default_val)
 {
@@ -167,6 +185,9 @@ T getParam(ros::NodeHandle* nh, const std::string& name, const T default_val)
   }
   return val;
 }
+/**
+ * Function to get and return parameter (defined in config\.yaml). If not available, return default_val
+ */
 template <typename T>
 T getParam(ros::NodeHandle& nh, const std::string& name, const T default_val)
 {
@@ -195,7 +216,9 @@ void PublishCloud(const ros::Publisher& cloud_publisher, const PCLPointCloudType
   cloud_msg.header.stamp = ros::Time::now();
   cloud_publisher.publish(cloud_msg);
 }
-
+/**
+ * Helper function to call publisher.publish(msg). Adds current timestamp to msg
+ */
 template <class ROSMsgType>
 void Publish(const ros::Publisher& publisher, ROSMsgType& msg, const std::string& frame_id)
 {
@@ -206,6 +229,9 @@ void Publish(const ros::Publisher& publisher, ROSMsgType& msg, const std::string
 
 void SetDifference(std::vector<int>& v1, std::vector<int>& v2, std::vector<int>& diff);
 
+/**
+ * Simple class for calculating duration by std::chrono
+ */
 class Timer
 {
 private:
@@ -281,7 +307,9 @@ public:
     }
   }
 };
-
+/**
+ * Object for visualization that publishes visualization_msgs::Marker to pub_topic
+ */
 class Marker
 {
 private:

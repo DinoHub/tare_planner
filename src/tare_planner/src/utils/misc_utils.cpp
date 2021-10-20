@@ -561,6 +561,15 @@ double DistancePoint2DToPolygon(const geometry_msgs::Point& point, const geometr
   return distance_return;
 }
 
+/**
+ * Function to create regular interpolated points between 2 input points. The final vector of points always spans a shorter distance than the 2 input points. 
+ * TODO: It makes more sense to do floor instead of ceil, and always add p2 in. (see LinInterpPoints in misc_utils.h) 
+ * TODO: It may make even more sense to add a constant distance of 'resolution' instead of '(p2 - p1) / point_num' 
+ * @param p1 start point. this point will always be added to the vector.
+ * @param p2 second point to calculate distance, this point is not added to the vector. 
+ * @param resolution distance between 2 interpolated points. if p2-p1 is less than this, then vector will only include those 2 points and no interpolation is done.
+ * @param interp_points reference to vector which stores the interpolated points.
+ */
 void LinInterpPoints(const Eigen::Vector3d& p1, const Eigen::Vector3d& p2, double resolution,
                      std::vector<Eigen::Vector3d>& interp_points)
 {
@@ -618,6 +627,9 @@ void ConcatenatePath(nav_msgs::Path& path1, const nav_msgs::Path& path2, int fro
   }
 }
 
+/**
+ * Function to copy the element present in v1 but not in v2 into diff. v1 and v2 are sorted in place.
+ */
 void SetDifference(std::vector<int>& v1, std::vector<int>& v2, std::vector<int>& diff)
 {
   std::sort(v1.begin(), v1.end());
@@ -628,16 +640,25 @@ void SetDifference(std::vector<int>& v1, std::vector<int>& v2, std::vector<int>&
 
 int Marker::id_ = 0;
 
+/**
+ * Function to return the sign of input int x. Returns either -1, 0 or 1.
+ */
 int signum(int x)
 {
   return x == 0 ? 0 : x < 0 ? -1 : 1;
 }
 
+/**
+ * Function to compute and return the positive remainder of value/modulus. E.g. remainder of -0.9 where modulus is 3 will return +2.1. 
+ */
 double mod(double value, double modulus)
 {
   return fmod(fmod(value, modulus) + modulus, modulus);
 }
 
+/**
+ * Function to compute and return the smallest positive double t such that s+t*ds is an integer. If s is a whole number, this reduces to 1/ds
+ */
 double intbound(double s, double ds)
 {
   // Find the smallest positive t such that s+t*ds is an integer.
@@ -647,17 +668,28 @@ double intbound(double s, double ds)
   }
   else
   {
-    s = mod(s, 1);
+    s = mod(s, 1); // [0,1]
     // problem is now s+t*ds = 1
     return (1 - s) / ds;
   }
 }
-
+/**
+ * Function to check if sub is bounded within(or on the surface of) the cuboid formed by max_sub and min_sub. Each dimension of max_sub must be larger than that of min_sub.
+ */
 bool InRange(const Eigen::Vector3i& sub, const Eigen::Vector3i& max_sub, const Eigen::Vector3i& min_sub)
 {
   return sub.x() >= min_sub.x() && sub.x() <= max_sub.x() && sub.y() >= min_sub.y() && sub.y() <= max_sub.y() &&
          sub.z() >= min_sub.z() && sub.z() <= max_sub.z();
 }
+/**
+ * Function that casts a ray from start_sub to end_sub, adding all the cells that were passed through to output. 
+ * TODO: seems to fail when t_max of 2 dimensions are the same, and before reaching end. e.g. diff of (4,2) gives max and delta of (1/4,1/2). After 1 step, the max becomes (1/2,1/2). Y moves by default which is wrong.
+ * @param start_sub The coordinates to start raycast from
+ * @param end_sub The coordinates to raycast to
+ * @param max_sub Larger coordinates of the boundaries to check. Each dimension of max_sub must be larger than that of min_sub.
+ * @param min_sub Smaller coordinates of the boundaries to check.
+ * @param output Reference to vector containing coordinates of cells that were passed through  
+ */
 void RayCast(const Eigen::Vector3i& start_sub, const Eigen::Vector3i& end_sub, const Eigen::Vector3i& max_sub,
              const Eigen::Vector3i& min_sub, std::vector<Eigen::Vector3i>& output)
 {
@@ -675,7 +707,7 @@ void RayCast(const Eigen::Vector3i& start_sub, const Eigen::Vector3i& end_sub, c
   int step_x = signum(diff_sub.x());
   int step_y = signum(diff_sub.y());
   int step_z = signum(diff_sub.z());
-  double t_max_x = step_x == 0 ? DBL_MAX : intbound(start_sub.x(), diff_sub.x());
+  double t_max_x = step_x == 0 ? DBL_MAX : intbound(start_sub.x(), diff_sub.x()); // If diff is 0, t_max is large and x will not be moved
   double t_max_y = step_y == 0 ? DBL_MAX : intbound(start_sub.y(), diff_sub.y());
   double t_max_z = step_z == 0 ? DBL_MAX : intbound(start_sub.z(), diff_sub.z());
   double t_delta_x = step_x == 0 ? DBL_MAX : (double)step_x / (double)diff_sub.x();
@@ -695,12 +727,12 @@ void RayCast(const Eigen::Vector3i& start_sub, const Eigen::Vector3i& end_sub, c
     }
     if (t_max_x < t_max_y)
     {
-      if (t_max_x < t_max_z)
+      if (t_max_x < t_max_z) // x is the closest to the ray 
       {
         cur_sub.x() += step_x;
         t_max_x += t_delta_x;
       }
-      else
+      else // z is the closest to the ray 
       {
         cur_sub.z() += step_z;
         t_max_z += t_delta_z;
@@ -708,12 +740,12 @@ void RayCast(const Eigen::Vector3i& start_sub, const Eigen::Vector3i& end_sub, c
     }
     else
     {
-      if (t_max_y < t_max_z)
+      if (t_max_y < t_max_z) // y is the closest to the ray 
       {
         cur_sub.y() += step_y;
         t_max_y += t_delta_y;
       }
-      else
+      else // z is the closest to the ray 
       {
         cur_sub.z() += step_z;
         t_max_z += t_delta_z;
@@ -781,6 +813,10 @@ bool InFOVSimple(const Eigen::Vector3d& point_position, const Eigen::Vector3d& v
   return true;
 }
 
+/**
+ * Calculates and returns the basic angle by third order polynomial approximation to arctan(z) where -1<=z<=1. Returns [0,~π/4]
+ * http://www-labs.iro.umontreal.ca/~mignotte/IFT2425/Documents/EfficientApproximationArctgFunction.pdf
+ */
 float ApproxAtan(float z)
 {
   const float n1 = 0.97239411f;
@@ -788,20 +824,26 @@ float ApproxAtan(float z)
   return (n1 + n2 * z * z) * z;
 }
 
+/**
+ * Returns an approximation of arctan(y/x). Return value is [-π,π]
+ */
 float ApproxAtan2(float y, float x)
 {
   float ay = std::abs(y), ax = std::abs(x);
   int invert = ay > ax;
   float z = invert ? ax / ay : ay / ax;  // [0,1]
   float th = ApproxAtan(z);              // [0,π/4]
-  if (invert)
+  if (invert) // arctan(z) + arctan(1/z) = π/2
     th = M_PI_2 - th;  // [0,π/2]
-  if (x < 0)
+  if (x < 0) // angle is obtuse. Take π - basic angle
     th = M_PI - th;      // [0,π]
   th = copysign(th, y);  // [-π,π]
   return th;
 }
 
+/**
+ * Function to calculate and return the total length spanned by points in the path.
+ */
 double GetPathLength(const nav_msgs::Path& path)
 {
   double path_length = 0.0;
@@ -819,6 +861,9 @@ double GetPathLength(const nav_msgs::Path& path)
   return path_length;
 }
 
+/**
+ * Function to calculate and return the total length spanned by points in the path.
+ */
 double GetPathLength(const std::vector<Eigen::Vector3d>& path)
 {
   double path_length = 0.0;
@@ -835,6 +880,16 @@ double GetPathLength(const std::vector<Eigen::Vector3d>& path)
   return path_length;
 }
 
+/**
+ * Function that runs AStar search through graph to find shortest path from start to end node. Returns the path distance.
+ * @param graph 2D vector/matrix where graph[u] contains the nodes that are directly connected to u
+ * @param node_dist 2D vector/matrix containing the distance between 2 input nodes
+ * @param node_positions Vector containing the coordinates at the node index
+ * @param from_idx start node index
+ * @param to_idx goal node index
+ * @param get_path If true, fills path_indices with the sequence of indices in the path
+ * @param path_indices reference to vector of shortest path from start to end
+ */
 double AStarSearch(const std::vector<std::vector<int>>& graph, const std::vector<std::vector<double>>& node_dist,
                    const std::vector<geometry_msgs::Point>& node_positions, int from_idx, int to_idx, bool get_path,
                    std::vector<int>& path_indices)
@@ -851,8 +906,9 @@ double AStarSearch(const std::vector<std::vector<int>>& graph, const std::vector
   std::vector<double> f(graph.size(), INF);
   std::vector<int> prev(graph.size(), -1);
   std::vector<bool> in_pg(graph.size(), false);
-
-  g[from_idx] = 0;
+  // g[node] is the distance (cost) from start to node 
+  // f[node] is g[node] + distance (cost) from node to end
+  g[from_idx] = 0; 
   f[from_idx] = misc_utils_ns::PointXYZDist<geometry_msgs::Point, geometry_msgs::Point>(node_positions[from_idx],
                                                                                         node_positions[to_idx]);
   pq.push(std::make_pair(f[from_idx], from_idx));
@@ -906,7 +962,18 @@ double AStarSearch(const std::vector<std::vector<int>>& graph, const std::vector
 
   return shortest_dist;
 }
-
+/**
+ * Function that runs AStar search through graph to find shortest path (shorter than threshold) from start to end node. May not find a path and returns a boolean indicating if path is found. To run a search without this threshold, use AStarSearch() instead.
+ * @param graph 2D vector/matrix where graph[u] contains the nodes that are directly connected to u
+ * @param node_dist 2D vector/matrix containing the distance between 2 input nodes
+ * @param node_positions Vector containing the coordinates at the node index
+ * @param from_idx start node index
+ * @param to_idx goal node index
+ * @param get_path If true, fills path_indices with the sequence of indices in the path
+ * @param path_indices reference to vector of shortest path from start to end
+ * @param shortest_dist reference to length of path found. If no path is found, this contains the shortest distance before function break
+ * @param max_path_length threshold of maximum allowed path length beyond which function breaks and returns false
+ */
 bool AStarSearchWithMaxPathLength(const std::vector<std::vector<int>>& graph,
                                   const std::vector<std::vector<double>>& node_dist,
                                   const std::vector<geometry_msgs::Point>& node_positions, int from_idx, int to_idx,
@@ -989,6 +1056,9 @@ bool AStarSearchWithMaxPathLength(const std::vector<std::vector<int>>& graph,
   return found_path;
 }
 
+/**
+ * Function that simplifies a path by removing the poses that are on a straight lines, keeping only the corner poses. Returns the shortened simplified_path. 
+ */
 nav_msgs::Path SimplifyPath(const nav_msgs::Path& path)
 {
   nav_msgs::Path simplified_path;
@@ -1082,7 +1152,9 @@ void SampleLineSegments(const std::vector<Eigen::Vector3d>& initial_points, doub
   }
   sample_points.push_back(next_point);
 }
-
+/**
+ * Sort the input vector and remove duplicate entries from it. 
+ */
 void UniquifyIntVector(std::vector<int>& list)
 {
   std::sort(list.begin(), list.end());

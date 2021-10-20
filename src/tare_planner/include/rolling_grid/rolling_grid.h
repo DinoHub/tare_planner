@@ -26,18 +26,30 @@ class RollingGrid
 public:
   explicit RollingGrid(const Eigen::Vector3i& size);
   ~RollingGrid() = default;
+  /**
+   * Checks if input point is within grid size/local planning horizon defined by kNumber
+   */
   bool InRange(Eigen::Vector3i sub) const
   {
     return grid0_->InRange(sub);
   }
+  /**
+   * Checks if input point is within grid size/local planning horizon defined by kNumber
+   */
   bool InRange(int ind) const
   {
     return grid0_->InRange(ind);
   }
+  /**
+   * Converts ind (1D int) to sub (3D vector).
+   */
   Eigen::Vector3i Ind2Sub(int ind) const
   {
     return grid0_->Ind2Sub(ind);
   }
+  /**
+   * Converts sub (3D vector) to ind (1D int) according to a flattened grid
+   */
   int Sub2Ind(Eigen::Vector3i sub) const
   {
     return grid0_->Sub2Ind(sub);
