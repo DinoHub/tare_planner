@@ -152,7 +152,14 @@ public:
   void UpdateViewPointVisited(std::unique_ptr<grid_world_ns::GridWorld> const& grid_world);
   void SetViewPointHeightWithTerrain(const pcl::PointCloud<pcl::PointXYZI>::Ptr& terrain_cloud,
                                      double terrain_height_threshold = DBL_MAX);
-
+  
+  /**
+   * @brief Checks if points in input cloud are within FOV of viewpoints. If they are within FOV, update point's 
+   * coverage using lidar_model.
+   * 
+   * @tparam PCLPointType type of pointcloud point used within the input cloud.
+   * @param cloud input cloud.
+   */
   template <class PCLPointType>
   void UpdateViewPointCoverage(const typename pcl::PointCloud<PCLPointType>::Ptr& cloud)
   {
@@ -188,6 +195,12 @@ public:
     }
   }
 
+  /**
+   * @brief 
+   * 
+   * @tparam PCLPointType type of pointcloud point used within the input cloud.
+   * @param cloud input cloud.
+   */
   template <class PCLPointType>
   void UpdateRolledOverViewPointCoverage(const typename pcl::PointCloud<PCLPointType>::Ptr& cloud)
   {

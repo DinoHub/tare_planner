@@ -72,7 +72,7 @@ bool PlannerParameters::ReadParameters(ros::NodeHandle& nh)
 }
 
 /**
- * Initializes point clouds and modules for TARE, all stored within the PlannerData struct.
+ * Initializes PlannerData, a struct containing point clouds and modules required by TARE to function.
  * 
  * @param nh main ROS node's handle.
  * @param nh_p main ROS node's private handle.
@@ -166,7 +166,7 @@ void PlannerData::Initialize(ros::NodeHandle& nh, ros::NodeHandle& nh_p)
 }
 
 /**
- * Initializes TARE planner.
+ * Main constructor that initializes TARE planner.
  * 
  * @param nh main ROS node's handle.
  * @param nh_p main ROS node's private handle.
@@ -197,11 +197,11 @@ SensorCoveragePlanner3D::SensorCoveragePlanner3D(ros::NodeHandle& nh, ros::NodeH
 }
 
 /**
- * Reads parameters into PlannerParameters and initializes PlannerData with all point clouds and modules required for 
- * TARE. 
+ * Reads parameters into the PlannerParameter struct and initializes the PlannerData struct with all point clouds and 
+ * modules required by TARE to function. 
  * 
  * Starts subscribers for: exploration start, registered scan, terrain map, terrain map ext, state estimation, coverage 
- * boundary, viewpoint boundary and nogo boundary.
+ * boundary, viewpoint boundary and nogo boundary. 
  * 
  * Starts publishers for: global path full, global path, old global path, to nearest global subspace path, local tsp 
  * path, exploration path, waypoint, exploration finish, runtime breakdown, runtime and momentum activation count.
@@ -364,8 +364,8 @@ void SensorCoveragePlanner3D::RegisteredScanCallback(const sensor_msgs::PointClo
 
 /**
  * Callback function for updating terrain map pointcloud. Iterates through all points in pointcloud from incoming 
- * message, and appends points with greater intensity than the Terrain Collision Threshold into the terrain collision 
- * cloud within PlannerData.
+ * message, and appends points with greater intensity than the Terrain Collision Threshold to terrain_collision_cloud_ 
+ * within PlannerData.
  * 
  * @param terrain_map_msg inbound message containing terrain collision information.
  */
@@ -387,9 +387,9 @@ void SensorCoveragePlanner3D::TerrainMapCallback(const sensor_msgs::PointCloud2C
 }
 
 /**
- * Callback function for updating terrain map ext collision pointcloud. Iterates through all points in pointcloud from 
- * incoming message, and appends points with greater intensity than the Terrain Collision Threshold into the terrain 
- * collision ext cloud within PlannerData.
+ * Callback function for updating the terrain_ext_collision_cloud_. Iterates through all points in pointcloud from 
+ * terrain_map_ext_msg, and appends points with greater intensity than kTerrainCollisionThreshold into 
+ * terrain_ext_collision_cloud_ within PlannerData.
  * 
  * @param terrain_map_ext_msg inbound message containing terrain collision information.
  */
@@ -434,11 +434,12 @@ void SensorCoveragePlanner3D::ViewPointBoundaryCallback(const geometry_msgs::Pol
 }
 
 /**
- * Callback function that updates nogo boundary. Pushes different polygon points with same z value into nogo boundary 
- * vector, then updates the nogo boundary through the viewpoint manager. Populates nogo boundary marker and publishes 
- * the marker for visualization.
+ * Callback function that updates nogo boundary within the viewpoint manager. 
  * 
- * @param polygon_msg contains polygon with nogo boundary. 
+ * Pushes different polygon points with same z value into a temporary vector, nogo_boundary. Updates the nogo boundary 
+ * through the viewpoint manager. Populates nogo boundary marker and publishes the marker for visualization.
+ * 
+ * @param polygon_msg contains polygon with nogo_boundary. 
  */
 void SensorCoveragePlanner3D::NogoBoundaryCallback(const geometry_msgs::PolygonStampedConstPtr& polygon_msg)
 {
@@ -495,10 +496,10 @@ void SensorCoveragePlanner3D::NogoBoundaryCallback(const geometry_msgs::PolygonS
 }
 
 /**
- * Creates a simple waypoint that +12m in the x direction. 
+ * Creates a simple waypoint that is +12m in the x-direction. 
  * 
- * This function is used when the TARE planner hasn't been initialized at the start. It publishes a 
- * waypoint hardcoded to be +12m in the x direction.
+ * This function is most useful called when the TARE planner hasn't been initialized at the start. It publishes a 
+ * waypoint hardcoded to be +12m in the x-direction.
  */
 void SensorCoveragePlanner3D::SendInitialWaypoint()
 {
@@ -518,8 +519,8 @@ void SensorCoveragePlanner3D::SendInitialWaypoint()
 }
 
 /**
- * Checks non keypose nodes for collision, and updates keypose node connectivity. Once keypose nodes within the graph 
- * are updated, publish keypose graph visualization cloud.
+ * Checks non-keypose nodes for collision, and updates keypose node connectivity. Once keypose nodes within the graph 
+ * are updated, publish keypose_graph_vis_cloud_ within PlannerData.
  */
 void SensorCoveragePlanner3D::UpdateKeyposeGraph()
 {
@@ -539,7 +540,13 @@ void SensorCoveragePlanner3D::UpdateKeyposeGraph()
 }
 
 /**
- * Get and update collision cloud. Use cloud to get viewpoint candidates. Updates robot pose as visited viewpoints.
+ * Get updated collision cloud from planning_env_ and updates collision_cloud_ within PlannerData. Appends terrain data 
+ * onto collision clouds if terrain collision is considered. Sets viewpoint height to terrain height if terrain height 
+ * is considered.
+ * 
+ * Use collision_cloud_ to get viewpoint candidates, and update viewpoint collision, line of sight and connectivity. 
+ * Updates visited viewpoints based on visited_positions_ and grid_world_ within PlannerData. Publishes collision 
+ * view point visualization cloud.
  */
 int SensorCoveragePlanner3D::UpdateViewPoints()
 {
@@ -550,6 +557,8 @@ int SensorCoveragePlanner3D::UpdateViewPoints()
 
   misc_utils_ns::Timer viewpoint_manager_update_timer("update viewpoint manager");
   viewpoint_manager_update_timer.Start();
+
+  // Uses terrain to update all viewpoint heights.
   if (pp_.kUseTerrainHeight)
   {
     pd_.viewpoint_manager_->SetViewPointHeightWithTerrain(pd_.large_terrain_cloud_->cloud_);

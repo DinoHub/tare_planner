@@ -83,7 +83,7 @@ public:
   }
 
   /**
-   * Checks if point is visible from LiDAR pose. 
+   * @brief Checks if point is visible from LiDAR pose. 
    * 
    * Calculates a horizontal angle and vertical angle from LiDAR pose and point. Gets number of horizontal/vertical 
    * neighbors, and iterates through them, returning true if there exists a point within covered_voxel_ which 

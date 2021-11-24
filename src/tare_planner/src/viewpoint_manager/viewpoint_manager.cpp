@@ -1108,7 +1108,7 @@ void ViewPointManager::UpdateViewPointVisited(std::unique_ptr<grid_world_ns::Gri
 /**
  * Gets closest viewpoint to current robot position. If there is no terrain cloud information OR robot viewpoint height 
  * is higher than terrin change threshold, manually sets height of robot viewpoint, updating robot viewpoint and its 
- * neighbors to the new computed height.
+ * neighbors to the new computed height. 
  * 
  * Iterates through terrain cloud and does a similar update for viewpoints corresponding to terrain cloud points. 
  * 
