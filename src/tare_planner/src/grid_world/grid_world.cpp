@@ -181,9 +181,11 @@ void GridWorld::ReadParameters(ros::NodeHandle& nh)
 }
 
 /**
- * Get new neighbor cell indices and update visit counts for cells.
+ * Generates new neighbor cell positions by iterating through kRowNum, kColNum and kLevelNum. Initializes subspaces_ 
+ * at neighbor cell positions with actual subspace_center_geo_position and subspace_center_position.
  * 
- * @param robot_position position of robot to determine neighboring cells.
+ * @param robot_position position of robot to get origin of subspaces and generate neighboring cells to populate 
+ * subspaces_.
  */
 void GridWorld::UpdateNeighborCells(const geometry_msgs::Point& robot_position)
 {
@@ -232,7 +234,8 @@ void GridWorld::UpdateNeighborCells(const geometry_msgs::Point& robot_position)
 }
 
 /**
- * Updates robot position within global planner.
+ * Updates robot_position_ as well as robot's robot_cell_ind with incoming parameter. If current_robot_cell_ind_ is 
+ * outdated, move it to prev_robot_cell_ind_ and update cur_robot_cell_ind_.
  * 
  * @param robot_position current position of robot.
  */
@@ -248,9 +251,10 @@ void GridWorld::UpdateRobotPosition(const geometry_msgs::Point& robot_position)
 }
 
 /**
- * Clears the graph node indices of all cells with a status of EXPLORING. Iterate through indices of all keypose
- * graph connected nodes, use keypose graph index to get corresponding subspace, and add graph node to cell if 
- * status is EXPLORING. 
+ * Iterates through all subspaces_ and clears the graph node indices of all cells with a status of EXPLORING. Subspaces 
+ * are initialized in UpdateNeighborCells. Iterate through keypose_graph_connected_node_indices, and for each connected 
+ * node within the keypose graph, get corresponding subspace, and add keypose_graph_connected_node_indices to cell if 
+ * status of subspace cell is EXPLORING. 
  * 
  * @param keypose_graph keypose graph of planner.
  */
@@ -279,6 +283,15 @@ void GridWorld::UpdateCellKeyposeGraphNodes(const std::unique_ptr<keypose_graph_
   }
 }
 
+/**
+ * @brief converts cell indices to subspaces. If both cell subspaces have a difference of one, they are considered to 
+ * be neighbors.
+ * 
+ * @param cell_ind1 first cell.
+ * @param cell_ind2 second cell.
+ * @return true if difference between cell subspaces have a difference of one.
+ * @return false if difference between cell subspaces have a difference other than one.
+ */
 bool GridWorld::AreNeighbors(int cell_ind1, int cell_ind2)
 {
   Eigen::Vector3i cell_sub1 = subspaces_->Ind2Sub(cell_ind1);
@@ -327,6 +340,13 @@ Eigen::Vector3i GridWorld::GetCellSub(const Eigen::Vector3d& point)
   return subspaces_->Pos2Sub(point);
 }
 
+/**
+ * @brief For all possible rows, columns and levels within the environment, generate a marker with colors corresponding 
+ * to their status message. An UNSEEN cell is blue, a COVERED cell is yellow, an EXPLORING cell is green, and a NOGO 
+ * cell is red. All other cells are gray.
+ * 
+ * @param marker visualization_msgs::Marker containing all a marker for each row, column and level.
+ */
 void GridWorld::GetMarker(visualization_msgs::Marker& marker)
 {
   marker.points.clear();
@@ -403,6 +423,12 @@ void GridWorld::GetMarker(visualization_msgs::Marker& marker)
   //        }
 }
 
+/**
+ * @brief Iterates through the subspaces_, and for all subspaces that have a roadmap connection point, gets roadmap 
+ * connection point position and pushes point back into vis_cloud for visualization. 
+ * 
+ * @param[out] vis_cloud contains markers to visualize. 
+ */
 void GridWorld::GetVisualizationCloud(pcl::PointCloud<pcl::PointXYZI>::Ptr& vis_cloud)
 {
   vis_cloud->points.clear();
@@ -497,6 +523,12 @@ void GridWorld::GetNeighborCellIndices(const geometry_msgs::Point& position, con
   GetNeighborCellIndices(center_cell_sub, neighbor_range, neighbor_indices);
 }
 
+/**
+ * @brief Iterates through subspaces_ to collect all subspaces with an EXPLORING status, and append them onto 
+ * exploring_cell_indices.
+ * 
+ * @param[out] exploring_cell_indices vector containing all cell indices with an EXPLORING status.
+ */
 void GridWorld::GetExploringCellIndices(std::vector<int>& exploring_cell_indices)
 {
   exploring_cell_indices.clear();
@@ -579,10 +611,15 @@ int GridWorld::GetCellStatusCount(grid_world_ns::CellStatus status)
 }
 
 /**
- * Iterates through subspaces and counts number of exploring, unexplored (unseen), and explored (covered) subspaces.
- * Iterates through candidate viewpoints, and add candidate viewpoints to cells that are in range. Iterates through
- * neighbor cells, going through each viewpoint to populate metrics and keep track of highest score viewpoint.
- * Updates cell status in all neighboring cell indices.
+ * Iterates through subspaces_ and counts number of EXPLORING, UNSEEN (unexplored), and COVERED (explored) subspaces.
+ * 
+ * Iterates through viewpoint candidate_indices_, and add candidate viewpoints to cells that are in range.
+ * 
+ * Iterates through neighbor_cell_indices_ that are not COVERED_BY_OTHERS. Goes through viewpoint_ind of each 
+ * neighbor cell to populate a list of metrics.
+ * 
+ * For each neighbor cell, changes the status of the cell (EXPLORING / COVERED) based on the metrics obtained from the 
+ * neighbor_cell_indices_ iteration.
  * 
  * @param viewpoint_manager for accessing certain viewpoint information.
  */
@@ -744,13 +781,15 @@ void GridWorld::UpdateCellStatus(const std::shared_ptr<viewpoint_manager_ns::Vie
 }
 
 /**
- * Gets global path robot position from one of three possibilities: node representing robot position, nearest keypose node,
- * or closest neighbor.
+ * Gets global path robot position from one of three possibilities: node representing robot position, nearest keypose 
+ * node, or closest neighbor.
  * 
- * Iterates through all EXPLORING cells within the subspace to find all connection points to the global roadmap. If no easy connection,
- * iterates through keypose graph nodes of the cell to find node closest to connection point that is reachable.
+ * Iterates through all EXPLORING cells within the subspace to find all connection points to the global roadmap. If no 
+ * easy connection, iterates through keypose graph nodes of the cell to find node closest to connection point that is 
+ * reachable.
  * 
- * If no nodes are EXPLORING or all are unreachable, sends robot home, but makes it a loop (robot pos -> home -> robot pos).
+ * If no nodes are EXPLORING or all are unreachable, sends robot home, but makes it a loop 
+ * (robot pos -> home -> robot pos).
  * 
  * Constructs distance matrix and solves TSP. Returns global path.
  * 
@@ -1165,7 +1204,8 @@ void GridWorld::AddPathsInBetweenCells(const std::shared_ptr<viewpoint_manager_n
       }
     }
 
-    // Attempts to find a path for each neighbor cell to its own neighbors if there are viewpoints there, and they are connected in keypose graph.
+    // Attempts to find a path for each neighbor cell to its own neighbors if there are viewpoints there, 
+    // and they are connected in keypose graph.
     for (int j = 0; j < nearby_cell_indices.size(); j++)
     {
       int to_cell_ind = nearby_cell_indices[j];

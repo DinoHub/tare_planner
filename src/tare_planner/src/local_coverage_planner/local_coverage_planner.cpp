@@ -704,12 +704,13 @@ exploration_path_ns::ExplorationPath LocalCoveragePlanner::SolveTSP(const std::v
  * 
  * Collates viewpoint indices (start, end, robot viewpoint and lookahead viewpoint).
  * Filters previously selected viewpoint array, finding those that are still reusable.
- * Merge points within reused_viewpoint_indices and navigation_viewpoint_indices to pre_selected_viewpoint_array_indices.
- * Iterate through pre_selected_viewpoint_array_indices and update the number of covered points and frontier points, as well 
- * as their corresponding boolean masks. 
+ * Merge points within reused_viewpoint_indices and navigation_viewpoint_indices to 
+ * pre_selected_viewpoint_array_indices.
+ * Iterate through pre_selected_viewpoint_array_indices and update the number of covered points and frontier points, as 
+ * well as their corresponding boolean masks. 
  * Enqueue viewpoint candidates according to the number of covered points. 
- * Performs algorithm 1 (compute local path line 5:) if current viewpoint candidates meet criteria. Otherwise, perform on 
- * previous selected viewpoint candidates (if any).
+ * Performs algorithm 1 (compute local path line 5:) if current viewpoint candidates meet criteria. Otherwise, perform 
+ * on previous selected viewpoint candidates (if any).
  * 
  * @param global_path global path.
  * @param uncovered_point_num surface points covered by unvisited viewpoints.
@@ -745,7 +746,8 @@ exploration_path_ns::ExplorationPath LocalCoveragePlanner::SolveLocalCoveragePro
 
   std::vector<int> pre_selected_viewpoint_array_indices;
   std::vector<int> reused_viewpoint_indices;
-  // Filters through last selected viewpoints for points that cover more than kMinAddPointNum, and pushes them into reused_viewpoint_indices. 
+  // Filters through last selected viewpoints for points that cover more than kMinAddPointNum, and pushes them into 
+  // reused_viewpoint_indices. 
   for (auto& viewpoint_array_ind : last_selected_viewpoint_array_indices_)
   {
     if (viewpoint_manager_->ViewPointVisited(viewpoint_array_ind, true) ||

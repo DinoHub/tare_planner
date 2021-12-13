@@ -110,7 +110,8 @@ void LinInterpPoints(const Eigen::Vector3d& p1, const Eigen::Vector3d& p2, doubl
  * TODO: It may make even more sense to add a constant dist of 'resolution' instead of '(p2 - p1) / point_num' 
  * @param p1 start point. this point will always be added to the cloud.
  * @param p2 second point to calculate distance, this point will always be added to the cloud. 
- * @param resolution distance between 2 interpolated points. if p2-p1 is less than this, then vector will only include those 2 points and no interpolation is done.
+ * @param resolution distance between 2 interpolated points. if p2-p1 is less than this, then vector will only include 
+ * those 2 points and no interpolation is done.
  * @param interp_points reference to pointcloud which stores the interpolated points.
  */
 template <class PCLPointType>

@@ -241,7 +241,7 @@ public:
   }
 
 private:
-  lidar_model_ns::LiDARModel lidar_model_;
+lidar_model_ns::LiDARModel lidar_model_;
 
   // Whether this viewpoint is in collision with the environment
   bool in_collision_;

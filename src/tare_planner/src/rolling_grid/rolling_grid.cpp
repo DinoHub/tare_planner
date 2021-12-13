@@ -34,7 +34,10 @@ RollingGrid::RollingGrid(const Eigen::Vector3i& size) : size_(size), which_grid_
   }
 }
 /**
- * Updates the grid values after rolling/shifting. Updates updated_indices_. Flips which_grid_. Then updates array_ind_to_ind_ using the updated grid
+ * Updates the grid values after rolling/shifting. Updates updated_indices_. Flips which_grid_. 
+ * Then updates array_ind_to_ind_ using the updated grid.
+ * 
+ * @param roll_dir Number of grids to shift by, usually -2 to 2 kRolloverStepsize. E.g. [-8,0,0]
  */
 void RollingGrid::Roll(const Eigen::Vector3i& roll_dir)
 {
@@ -74,7 +77,10 @@ void RollingGrid::Roll(const Eigen::Vector3i& roll_dir)
 /** 
  * Updates the second grid, referencing the values from the first grid.
  * TODO: wrap around don't seem to make sense for edge values.
+ * 
  * @param roll_dir Number of grids to shift by, usually -2 to 2 kRolloverStepsize. E.g. [-8,0,0]
+ * @param grid_in
+ * @param grid_out
  */
 void RollingGrid::RollHelper(const std::unique_ptr<grid_ns::Grid<int>>& grid_in,
                              const std::unique_ptr<grid_ns::Grid<int>>& grid_out, Eigen::Vector3i roll_dir)
@@ -88,7 +94,8 @@ void RollingGrid::RollHelper(const std::unique_ptr<grid_ns::Grid<int>>& grid_in,
   roll_dir.y() %= size_.y();
   roll_dir.z() %= size_.z();
   Eigen::Vector3i dir;
-  // dir is the number of grids to shift by, always positive. Instead of using negative numbers to represent the other direction, they wrap around in GetFromIdx(). TODO: wrap around don't seem to make sense for edge values.
+  // dir is the number of grids to shift by, always positive. Instead of using negative numbers to represent the other 
+  // direction, they wrap around in GetFromIdx(). TODO: wrap around don't seem to make sense for edge values.
   dir.x() = roll_dir.x() >= 0 ? roll_dir.x() : size_.x() + roll_dir.x();
   dir.y() = roll_dir.y() >= 0 ? roll_dir.y() : size_.y() + roll_dir.y();
   dir.z() = roll_dir.z() >= 0 ? roll_dir.z() : size_.z() + roll_dir.z();

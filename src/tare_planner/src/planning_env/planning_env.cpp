@@ -57,8 +57,10 @@ void PlanningEnvParameters::ReadParameters(ros::NodeHandle& nh)
 }
 
 /**
- * Initializes cloud stacks and point clouds. Sets up pointcloud manager, rolling grid, and necessary surface and 
- * frontier extractors.
+ * Initializes cloud stacks and point clouds. 
+ * 
+ * Initializes the pointcloud_manager_ with its necessary parameters, rolling_occupancy_grid_, and necessary 
+ * vertical surface and frontier extractors.
  */
 PlanningEnv::PlanningEnv(ros::NodeHandle nh, ros::NodeHandle nh_private, std::string world_frame_id)
   : keypose_cloud_count_(0)
@@ -165,8 +167,8 @@ PlanningEnv::PlanningEnv(ros::NodeHandle nh, ros::NodeHandle nh_private, std::st
 }
 
 /**
- * Updates collision cloud by resetting the collision cloud, adding all vertical surface clouds within the vertical 
- * surface cloud stack into the collision cloud, then downsizing it.
+ * Updates collision cloud by resetting the collision_cloud_, adding all vertical surface clouds within the 
+ * vertical_surface_cloud_stack_ into the collision_cloud_, then downsizing it.
  */
 void PlanningEnv::UpdateCollisionCloud()
 {
@@ -182,11 +184,11 @@ void PlanningEnv::UpdateCollisionCloud()
 }
 
 /**
- * Publishes a filtered frontier cloud.
+ * Publishes the filtered_frontier_cloud_.
  * 
- * Gets frontier cloud using the occupancy grid. Limits cloud to within coverage boundary, and extracts vertical 
- * surfaces into the filtered frontier cloud. Clusters the frontiers, and extracts relevant indices if number of 
- * clusters exceed a threshold.
+ * Gets frontier cloud from the rolling_occupancy_grid_. Limits cloud to within coverage boundary, and extracts vertical 
+ * surfaces into the filtered_frontier_cloud_ through the vertical_frontier_extractor_. Clusters the frontiers, and 
+ * extracts relevant indices into inliers if number of clusters exceed kFrontierClusterMinSize.
  */
 void PlanningEnv::UpdateFrontiers()
 {
@@ -251,9 +253,9 @@ void PlanningEnv::UpdateFrontiers()
 }
 
 /**
- * Copies input cloud into terrain cloud.
+ * Copies input cloud into terrain_cloud_.
  * 
- * @param cloud cloud to be copied.
+ * @param cloud cloud to be copied into terrain_cloud_.
  */
 void PlanningEnv::UpdateTerrainCloud(const pcl::PointCloud<pcl::PointXYZI>::Ptr& cloud)
 {
@@ -270,7 +272,7 @@ void PlanningEnv::UpdateTerrainCloud(const pcl::PointCloud<pcl::PointXYZI>::Ptr&
 /**
  * Given an input point (x,y,z), checks if it is in collision.
  * 
- * Checks the KD Tree of the stacked vertical surface cloud within a radius search. If the number 
+ * Conducts radius search of stacked_vertical_surface_kdtree_ within kKeyposeGraphCollisionCheckRadius. If the number 
  * of neighbors exceed a threshold, consider the point to be in collision.
  * 
  * @param x point's x-value
@@ -304,20 +306,19 @@ bool PlanningEnv::InCollision(double x, double y, double z) const
 }
 
 /**
- * Given the robot's viewpoint and viewpoint_manager, iterate through the planner cloud and 
- * change all covered point colors to green within the planner cloud.
+ * Given the robot's viewpoint and viewpoint_manager, iterate through planner_cloud_ and change all covered point 
+ * colors to green within the planner cloud.
  * 
- * Iterates through the planner cloud. For each point, checks if point are within vertical FOV 
- * and satisfies equation 2. 
+ * Iterates through planner_cloud_. For each point, checks if point is within vertical FOV and satisfies equation 2. 
  * 
  * If the point doesn't meet above criteria, the algorithm iterates through ViewPoint candidates 
- * and checks if the ViewPoint can see the point. Point is considered covered.
+ * and checks if the ViewPoint can see the point - if visible, point is considered covered.
  * 
- * All covered points have their colors changed to green and are added to a list.
+ * All covered points have their colors changed to green and are added to covered_point_indices.
  * 
- * Creates a squeezed planner cloud, dilated by a ratio in the z-axis, and converts it into a KD Tree. 
- * Conducts a radius search within a radius to collect indices of points near covered points and mark 
- * them as covered as well (changing color to green).
+ * Creates a squeezed_planner_cloud_, dilated by a ratio in the z-axis, and converts it into 
+ * squeezed_planner_cloud_kdtree_. Searches squeezed_planner_cloud_kdtree_ within coverage_dilation_radius to collect 
+ * indices of points near covered points and mark them as covered as well (by changing color to green).
  * 
  * Finally, iterates through all points within the planner cloud, and updates all points that are covered 
  * within the pointcloud manager.
@@ -421,9 +422,9 @@ void PlanningEnv::UpdateCoveredArea(const lidar_model_ns::LiDARModel& robot_view
 
 /**
  * This function looks for uncovered points - points that are coverable by viewpoints, but have yet to be 
- * covered, maintains a tally of them, and adds them to the uncovered cloud and uncovered frontier cloud.
+ * covered, maintains a tally of them, and adds them to the uncovered_cloud_ and uncovered_frontier_cloud_.
  * 
- * Iterates through all points within the planner cloud. For each point, iterate through all viewpoint 
+ * Iterates through all points within the planner_cloud_. For each point, iterate through all viewpoint 
  * candidates. If the viewpoint candidate has not been visited, and the current point is visible by the 
  * viewpoint, add uncovered point number to viewpoint's covered point list and push point to uncovered_cloud.
  * 

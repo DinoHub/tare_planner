@@ -434,7 +434,7 @@ void SensorCoveragePlanner3D::ViewPointBoundaryCallback(const geometry_msgs::Pol
 }
 
 /**
- * Callback function that updates nogo boundary within the viewpoint manager. 
+ * Callback function that updates nogo_boundary within the viewpoint manager. 
  * 
  * Pushes different polygon points with same z value into a temporary vector, nogo_boundary. Updates the nogo boundary 
  * through the viewpoint manager. Populates nogo boundary marker and publishes the marker for visualization.
@@ -588,7 +588,10 @@ int SensorCoveragePlanner3D::UpdateViewPoints()
 }
 
 /**
- * @todo viewpoint manager has functions in header that have not been documented, under this function.
+ * Updates view point coverage within the viewpoint manager using the diff cloud from planning_env_. Updates rolled 
+ * over view point coverage using the stacked cloud within planning_env_. Resets coverage of robot_viewpoint_ from 
+ * planning env, and sets robot_viewpoint_ pose to current robot position. Update LiDAR model's coverage based on the 
+ * collision cloud.
  */
 void SensorCoveragePlanner3D::UpdateViewPointCoverage()
 {
@@ -606,6 +609,7 @@ void SensorCoveragePlanner3D::UpdateViewPointCoverage()
   UpdateRobotViewPointCoverage();
   update_coverage_timer.Stop(false);
 }
+
 /**
  * Updates the LiDAR model's coverage based on the collision cloud as long as points are in FOV and in range.
  */
@@ -865,7 +869,7 @@ void SensorCoveragePlanner3D::PublishLocalPlanningVisualization(const exploratio
 }
 
 /**
- * If exploration is finished, robot is near home and parameter Rush Home is set to be true, set the full path to be 
+ * If exploration is finished, robot is near home and parameter kRushHome is set to be true, set the full path to be 
  * robot's current path and home path.
  * 
  * Otherwise, sets full path to the local path, and updates local path end / start statuses by checking node types.
@@ -1298,7 +1302,7 @@ bool SensorCoveragePlanner3D::GetLookAheadPoint(const exploration_path_ns::Explo
 }
 
 /**
- * Publishes either the home waypoint (if exploration has been finished, robot is near home and Rush Home parameter is 
+ * Publishes either the home waypoint (if exploration has been finished, robot is near home and kRushHome parameter is 
  * set), or the lookahead point.
  */
 void SensorCoveragePlanner3D::PublishWaypoint()

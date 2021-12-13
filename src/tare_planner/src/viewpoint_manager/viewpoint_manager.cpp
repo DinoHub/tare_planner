@@ -341,7 +341,8 @@ bool ViewPointManager::UpdateRobotPosition(const Eigen::Vector3d& robot_position
   }
   Eigen::Vector3i robot_grid_sub;
   Eigen::Vector3d diff = robot_position_ - origin_; 
-  // std::cout << "robot: " << robot_position_.x() << ',' << robot_position_.y() << "\norigin: " << origin_.x() << ',' << origin_.y() << "\ndiff: " << diff.x() << ',' << diff.y() << "\n\n";
+  // std::cout << "robot: " << robot_position_.x() << ',' << robot_position_.y() << "\norigin: " << origin_.x() << ',' 
+  // << origin_.y() << "\ndiff: " << diff.x() << ',' << diff.y() << "\n\n";
   Eigen::Vector3i sub = Eigen::Vector3i::Zero();
   for (int i = 0; i < vp_.dimension_; i++)
   { // The displacement in terms of number of steps. E.g. [2,2,0]
@@ -351,11 +352,13 @@ bool ViewPointManager::UpdateRobotPosition(const Eigen::Vector3d& robot_position
 
   Eigen::Vector3i sub_diff = Eigen::Vector3i::Zero();
   for (int i = 0; i < vp_.dimension_; i++)
-  { // The number of steps from previous robot position. E.g. [-1,0,0]. There are 5 steps across 1 dimension, previous robot position is in the middle (2.5) 
+  { // The number of steps from previous robot position. E.g. [-1,0,0]. There are 5 steps across 1 dimension, previous 
+    // robot position is in the middle (2.5) 
     // TODO: thereotically, both terms should be kept as a double and the result casted to int (floored)
     sub_diff(i) = (vp_.kNumber(i) / vp_.kRolloverStepsize(i)) / 2 - robot_grid_sub(i);
   }
-  // std::cout << "diff: " << diff << "\n\n" << robot_grid_sub << "\n\n" << "sub_diff: " << sub_diff << "\n\n" << std::endl;
+  // std::cout << "diff: " << diff << "\n\n" << robot_grid_sub << "\n\n" << "sub_diff: " << sub_diff << 
+  // "\n\n" << std::endl;
 
   if (sub_diff.x() == 0 && sub_diff.y() == 0 && sub_diff.z() == 0)
   {
@@ -381,7 +384,8 @@ bool ViewPointManager::UpdateRobotPosition(const Eigen::Vector3d& robot_position
   misc_utils_ns::Timer reset_timer("reset viewpoint");
   reset_timer.Start();
 
-  // Shifts the origin (by displacement). Due to the way sub_diff was calculated, this is minus instead of plus. diff will now be relative to this new origin. Also shifts the local planning horizon. = number of grids * size of grid
+  // Shifts the origin (by displacement). Due to the way sub_diff was calculated, this is minus instead of plus. diff 
+  // will now be relative to this new origin. Also shifts the local planning horizon. = number of grids * size of grid
   //   origin_ = origin_ - rollover_step.cast<double>() * vp_.kResolution;
   origin_.x() -= rollover_step.x() * vp_.kResolution.x();
   origin_.y() -= rollover_step.y() * vp_.kResolution.y();
@@ -389,7 +393,8 @@ bool ViewPointManager::UpdateRobotPosition(const Eigen::Vector3d& robot_position
 
   // Get the indices 
   grid_->GetUpdatedIndices(updated_viewpoint_indices_);
-  // Similar to initialized_ part above to generate the grid of viewpoints from updated origin_. However, here we start with indices instead hence we need to transform it to get its x and y.  
+  // Similar to initialized_ part above to generate the grid of viewpoints from updated origin_. However, here we start 
+  // with indices instead hence we need to transform it to get its x and y.  
   for (const auto& ind : updated_viewpoint_indices_)
   {
     MY_ASSERT(grid_->InRange(ind));
@@ -464,7 +469,8 @@ Eigen::Vector3i ViewPointManager::GetViewPointSub(Eigen::Vector3d position)
 }
 
 /**
- * Gets subspace of grid at the position, checks if it is in range of the grid, and returns the index of the grid if it is.
+ * Gets subspace of grid at the position, checks if it is in range of the grid, and returns the index of the grid 
+ * if it is.
  * 
  * @param position query position.
  * @return index of grid, if valid. Else -1.
@@ -1022,7 +1028,8 @@ void ViewPointManager::CheckViewPointConnectivity()
   std::list<int> queue;
   queue.push_back(robot_ind);
   int connected_viewpoint_count = 1;
-  // DFS to check if viewpoint is able to be connected. If it is, set it to be connected and push back neighboring indices.
+  // DFS to check if viewpoint is able to be connected. If it is, set it to be connected and push back neighboring 
+  // indices.
   while (!queue.empty())
   {
     int cur_ind = queue.front();

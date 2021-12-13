@@ -16,6 +16,12 @@
 
 namespace tare
 {
+/**
+ * @brief Construct a new Graph:: Graph object with connection_, distance_ and positions_ initialized with their length 
+ * equal to node_number.
+ * 
+ * @param node_number number of nodes within graph.
+ */
 Graph::Graph(int node_number)
 {
   connection_.resize(node_number);
@@ -23,6 +29,11 @@ Graph::Graph(int node_number)
   positions_.resize(node_number);
 }
 
+/**
+ * @brief Adds a node with its position, initialized with empty vectors for connection and neighbor distance.
+ * 
+ * @param position position of node.
+ */
 void Graph::AddNode(const Eigen::Vector3d& position)
 {
   std::vector<int> connection;
@@ -32,6 +43,12 @@ void Graph::AddNode(const Eigen::Vector3d& position)
   positions_.push_back(position);
 }
 
+/**
+ * @brief Sets node position of node at node_index.
+ * 
+ * @param node_index index of node to set position.
+ * @param position  position of node.
+ */
 void Graph::SetNodePosition(int node_index, const Eigen::Vector3d& position)
 {
   if (NodeIndexInRange(node_index))
@@ -49,6 +66,13 @@ void Graph::SetNodePosition(int node_index, const Eigen::Vector3d& position)
   }
 }
 
+/**
+ * @brief Adds edge from a node to another, and updates distance in node with added edge.
+ * 
+ * @param from_node_index index of node to add edge to.
+ * @param to_node_index index of node at end of edge.
+ * @param distance distance between both nodes.
+ */
 void Graph::AddOneWayEdge(int from_node_index, int to_node_index, double distance)
 {
   if (NodeIndexInRange(from_node_index) && NodeIndexInRange(to_node_index))
@@ -64,12 +88,29 @@ void Graph::AddOneWayEdge(int from_node_index, int to_node_index, double distanc
   }
 }
 
+/**
+ * @brief Adds edge from a node to another, and from other node to node, and updates distances in both.
+ * 
+ * @param from_node_index index of node to add edge to.
+ * @param to_node_index index of node at end of edge.
+ * @param distance distance between both nodes.
+ */
 void Graph::AddTwoWayEdge(int from_node_index, int to_node_index, double distance)
 {
   AddOneWayEdge(from_node_index, to_node_index, distance);
   AddOneWayEdge(to_node_index, from_node_index, distance);
 }
 
+/**
+ * @brief Gets shortest path from a node to another, and saves it into shortest_path if get_path is set to true.
+ * 
+ * @param from_node_index index of node to start from.
+ * @param to_node_index index of node to go to.
+ * @param get_path status indicating if path is needed.
+ * @param[out] shortest_path contains shortest path if path is needed. 
+ * @param node_indices contains node indices from A star search.
+ * @return double path length.
+ */
 double Graph::GetShortestPath(int from_node_index, int to_node_index, bool get_path, nav_msgs::Path& shortest_path,
                               std::vector<int>& node_indices)
 {
@@ -90,6 +131,15 @@ double Graph::GetShortestPath(int from_node_index, int to_node_index, bool get_p
   return path_length;
 }
 
+/**
+ * @brief 
+ * 
+ * @param from_node_index index of node to start from.
+ * @param to_node_index index of node to go to.
+ * @param get_path status indicating if path is needed.
+ * @param node_indices contains node indices from A star search, if path is true.
+ * @return double path length.
+ */
 double Graph::AStarSearch(int from_node_index, int to_node_index, bool get_path, std::vector<int>& node_indices)
 {
   MY_ASSERT(NodeIndexInRange(from_node_index));

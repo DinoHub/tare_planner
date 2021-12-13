@@ -72,7 +72,8 @@ public:
   /**
    * Returns the updated grid's cell value at the input point.
    * 
-   * TODO: convert sub2ind instead of ind2sub since GetCellValue() works in ind space. InRange works in either. which_grid_ check can be in ind space instead
+   * TODO: convert sub2ind instead of ind2sub since GetCellValue() works in ind space. InRange works in either. 
+   * which_grid_ check can be in ind space instead.
    */
   int GetArrayInd(int ind) const
   {

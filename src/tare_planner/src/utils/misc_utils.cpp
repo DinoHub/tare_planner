@@ -181,7 +181,8 @@ double PointAngle(const PCLPointType& pnt, const geometry_msgs::Point& robot_pos
 bool CollinearXY(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2, const geometry_msgs::Point& p3,
                  double threshold)
 {
-  // https://math.stackexchange.com/questions/405966/if-i-have-three-points-is-there-an-easy-way-to-tell-if-they-are-collinear
+  // https://math.stackexchange.com/questions/405966/if-i-have-three-points-is-
+  // there-an-easy-way-to-tell-if-they-are-collinear
   double val = (p2.y - p1.y) * (p3.x - p2.x) - (p3.y - p2.y) * (p2.x - p1.x);
   if (std::abs(val) < threshold)
   {
@@ -562,12 +563,15 @@ double DistancePoint2DToPolygon(const geometry_msgs::Point& point, const geometr
 }
 
 /**
- * Function to create regular interpolated points between 2 input points. The final vector of points always spans a shorter distance than the 2 input points. 
+ * Function to create regular interpolated points between 2 input points. The final vector of points always spans a 
+ * shorter distance than the 2 input points.
+ * 
  * TODO: It makes more sense to do floor instead of ceil, and always add p2 in. (see LinInterpPoints in misc_utils.h) 
  * TODO: It may make even more sense to add a constant distance of 'resolution' instead of '(p2 - p1) / point_num' 
  * @param p1 start point. this point will always be added to the vector.
  * @param p2 second point to calculate distance, this point is not added to the vector. 
- * @param resolution distance between 2 interpolated points. if p2-p1 is less than this, then vector will only include those 2 points and no interpolation is done.
+ * @param resolution distance between 2 interpolated points. if p2-p1 is less than this, then vector will only include 
+ * those 2 points and no interpolation is done.
  * @param interp_points reference to vector which stores the interpolated points.
  */
 void LinInterpPoints(const Eigen::Vector3d& p1, const Eigen::Vector3d& p2, double resolution,
@@ -649,7 +653,8 @@ int signum(int x)
 }
 
 /**
- * Function to compute and return the positive remainder of value/modulus. E.g. remainder of -0.9 where modulus is 3 will return +2.1. 
+ * Function to compute and return the positive remainder of value/modulus. E.g. remainder of -0.9 where modulus is 3 
+ * will return +2.1. 
  */
 double mod(double value, double modulus)
 {
@@ -657,7 +662,8 @@ double mod(double value, double modulus)
 }
 
 /**
- * Function to compute and return the smallest positive double t such that s+t*ds is an integer. If s is a whole number, this reduces to 1/ds
+ * Function to compute and return the smallest positive double t such that s+t*ds is an integer. If s is a whole 
+ * number, this reduces to 1/ds
  */
 double intbound(double s, double ds)
 {
@@ -674,7 +680,8 @@ double intbound(double s, double ds)
   }
 }
 /**
- * Function to check if sub is bounded within(or on the surface of) the cuboid formed by max_sub and min_sub. Each dimension of max_sub must be larger than that of min_sub.
+ * Function to check if sub is bounded within(or on the surface of) the cuboid formed by max_sub and min_sub. Each 
+ * dimension of max_sub must be larger than that of min_sub.
  */
 bool InRange(const Eigen::Vector3i& sub, const Eigen::Vector3i& max_sub, const Eigen::Vector3i& min_sub)
 {
@@ -683,10 +690,13 @@ bool InRange(const Eigen::Vector3i& sub, const Eigen::Vector3i& max_sub, const E
 }
 /**
  * Function that casts a ray from start_sub to end_sub, adding all the cells that were passed through to output. 
- * TODO: seems to fail when t_max of 2 dimensions are the same, and before reaching end. e.g. diff of (4,2) gives max and delta of (1/4,1/2). After 1 step, the max becomes (1/2,1/2). Y moves by default which is wrong.
+ * TODO: seems to fail when t_max of 2 dimensions are the same, and before reaching end. e.g. diff of (4,2) gives max 
+ * and delta of (1/4,1/2). After 1 step, the max becomes (1/2,1/2). Y moves by default which is wrong.
+ * 
  * @param start_sub The coordinates to start raycast from
  * @param end_sub The coordinates to raycast to
- * @param max_sub Larger coordinates of the boundaries to check. Each dimension of max_sub must be larger than that of min_sub.
+ * @param max_sub Larger coordinates of the boundaries to check. Each dimension of max_sub must be larger than that of 
+ * min_sub.
  * @param min_sub Smaller coordinates of the boundaries to check.
  * @param output Reference to vector containing coordinates of cells that were passed through  
  */
@@ -707,7 +717,8 @@ void RayCast(const Eigen::Vector3i& start_sub, const Eigen::Vector3i& end_sub, c
   int step_x = signum(diff_sub.x());
   int step_y = signum(diff_sub.y());
   int step_z = signum(diff_sub.z());
-  double t_max_x = step_x == 0 ? DBL_MAX : intbound(start_sub.x(), diff_sub.x()); // If diff is 0, t_max is large and x will not be moved
+  double t_max_x = step_x == 0 ? DBL_MAX : intbound(start_sub.x(), diff_sub.x()); // If diff is 0, t_max is large and 
+                                                                                  // x will not be moved
   double t_max_y = step_y == 0 ? DBL_MAX : intbound(start_sub.y(), diff_sub.y());
   double t_max_z = step_z == 0 ? DBL_MAX : intbound(start_sub.z(), diff_sub.z());
   double t_delta_x = step_x == 0 ? DBL_MAX : (double)step_x / (double)diff_sub.x();
@@ -814,7 +825,8 @@ bool InFOVSimple(const Eigen::Vector3d& point_position, const Eigen::Vector3d& v
 }
 
 /**
- * Calculates and returns the basic angle by third order polynomial approximation to arctan(z) where -1<=z<=1. Returns [0,~π/4]
+ * Calculates and returns the basic angle by third order polynomial approximation to arctan(z) where -1<=z<=1. Returns 
+ * [0,~π/4]
  * http://www-labs.iro.umontreal.ca/~mignotte/IFT2425/Documents/EfficientApproximationArctgFunction.pdf
  */
 float ApproxAtan(float z)
@@ -881,7 +893,9 @@ double GetPathLength(const std::vector<Eigen::Vector3d>& path)
 }
 
 /**
- * Function that runs AStar search through graph to find shortest path from start to end node. Returns the path distance.
+ * Function that runs AStar search through graph to find shortest path from start to end node. Returns the path 
+ * distance.
+ * 
  * @param graph 2D vector/matrix where graph[u] contains the nodes that are directly connected to u
  * @param node_dist 2D vector/matrix containing the distance between 2 input nodes
  * @param node_positions Vector containing the coordinates at the node index
@@ -963,16 +977,20 @@ double AStarSearch(const std::vector<std::vector<int>>& graph, const std::vector
   return shortest_dist;
 }
 /**
- * Function that runs AStar search through graph to find shortest path (shorter than threshold) from start to end node. May not find a path and returns a boolean indicating if path is found. To run a search without this threshold, use AStarSearch() instead.
- * @param graph 2D vector/matrix where graph[u] contains the nodes that are directly connected to u
- * @param node_dist 2D vector/matrix containing the distance between 2 input nodes
- * @param node_positions Vector containing the coordinates at the node index
- * @param from_idx start node index
- * @param to_idx goal node index
- * @param get_path If true, fills path_indices with the sequence of indices in the path
- * @param path_indices reference to vector of shortest path from start to end
- * @param shortest_dist reference to length of path found. If no path is found, this contains the shortest distance before function break
- * @param max_path_length threshold of maximum allowed path length beyond which function breaks and returns false
+ * Function that runs AStar search through graph to find shortest path (shorter than threshold) from start to end node. 
+ * May not find a path and returns a boolean indicating if path is found. To run a search without this threshold, use 
+ * AStarSearch() instead.
+ * 
+ * @param graph 2D vector/matrix where graph[u] contains the nodes that are directly connected to u.
+ * @param node_dist 2D vector/matrix containing the distance between 2 input nodes.
+ * @param node_positions Vector containing the coordinates at the node index.
+ * @param from_idx start node index.
+ * @param to_idx goal node index.
+ * @param get_path If true, fills path_indices with the sequence of indices in the path.
+ * @param path_indices reference to vector of shortest path from start to end.
+ * @param shortest_dist reference to length of path found. If no path is found, this contains the shortest distance 
+ * before function break.
+ * @param max_path_length threshold of maximum allowed path length beyond which function breaks and returns false.
  */
 bool AStarSearchWithMaxPathLength(const std::vector<std::vector<int>>& graph,
                                   const std::vector<std::vector<double>>& node_dist,
@@ -1057,7 +1075,8 @@ bool AStarSearchWithMaxPathLength(const std::vector<std::vector<int>>& graph,
 }
 
 /**
- * Function that simplifies a path by removing the poses that are on a straight lines, keeping only the corner poses. Returns the shortened simplified_path. 
+ * Function that simplifies a path by removing the poses that are on a straight lines, keeping only the corner poses. 
+ * Returns the shortened simplified_path. 
  */
 nav_msgs::Path SimplifyPath(const nav_msgs::Path& path)
 {

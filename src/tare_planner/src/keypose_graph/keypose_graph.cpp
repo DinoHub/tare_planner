@@ -30,8 +30,8 @@ KeyposeNode::KeyposeNode(double x, double y, double z, int node_ind, int keypose
 }
 
 /**
- * Overloaded constructor with a complex representation of keypose node point 
- * that calls main constructor for keypose nodes.
+ * Overloaded constructor for keypose node point using geometry_msgs::Point that calls main constructor for keypose 
+ * nodes.
  * 
  * @param point x,y,z of node.
  * @param node_ind unique id for each node.
@@ -44,8 +44,8 @@ KeyposeNode::KeyposeNode(const geometry_msgs::Point& point, int node_ind, int ke
 }
 
 /**
- * Main constructor for KeyposeGraph that reads parameters into class and initializes kd trees 
- * and point clouds.
+ * Main constructor for KeyposeGraph that reads parameters into class and initializes kdtree_connected_nodes and 
+ * kdtree_nodes_ KD trees and connected_nodes_cloud_ and nodes_cloud_ point clouds.
  * 
  * @param nh main ROS node's handle.
  */
@@ -141,7 +141,7 @@ void KeyposeGraph::AddEdge(int from_node_ind, int to_node_ind, double dist)
 
 /**
  * Checks if there's a keypose node within reasonable distance from query position by getting 
- * the closest node index and distance to the query, then checking if it lies within range.
+ * the closest_node_ind and distance (min_dist) to the query, then checking if it lies within range.
  * 
  * @param position query position
  * @return boolean whether node within distance threshold exists.
@@ -983,7 +983,7 @@ geometry_msgs::Point KeyposeGraph::GetClosestNodePosition(const geometry_msgs::P
 }
 
 /**
- * Finds keypose node closest to start point, and keypose node closest to target point, and 
+ * Finds keypose node closest to start_point, and keypose node closest to target_point, and 
  * performs A* search from start to end with a maximum path length as a constraint.
  * 
  * @param start_point start point.
